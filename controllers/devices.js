@@ -55,7 +55,7 @@ const getAllDevices = async (req, res) => {
 
     const pages = Math.ceil(total / limit);
 
-    sendResponse(res, 200, {
+    return sendResponse(res, 200, {
       data: devices,
       pagination: {
         page: parseInt(page),
@@ -65,7 +65,8 @@ const getAllDevices = async (req, res) => {
       }
     });
   } catch (error) {
-    sendError(res, 500, 'Error fetching devices', error);
+    console.log("Error fetching devices", error);
+    // return sendError(res, 500, 'Error fetching devices', error);
   }
 };
 
@@ -381,6 +382,76 @@ const processCheckIn = async (req, res) => {
   }
 };
 
+/**
+ * Get all devices in a school (school admin only)
+ */
+const getSchoolDevices = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      isActive = '',
+      status = '',
+      classroom = ''
+    } = req.query;
+
+    const skip = (page - 1) * limit;
+    
+    // Build filter object - school admins can only see devices from their school
+    const filter = {
+      schoolId: req.user.schoolId
+    };
+    
+    if (search) {
+      filter.$or = [
+        { serialNumber: { $regex: search, $options: 'i' } },
+        { classroom: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } },
+        { deviceType: { $regex: search, $options: 'i' } },
+        { model: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    if (isActive !== '') {
+      filter.isActive = isActive === 'true';
+    }
+
+    if (status) {
+      filter.status = status;
+    }
+
+    if (classroom) {
+      filter.classroom = { $regex: classroom, $options: 'i' };
+    }
+
+    // Get total count
+    const total = await Device.countDocuments(filter);
+    
+    // Get devices with pagination
+    const devices = await Device.find(filter)
+      .populate('schoolId', 'name location')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const pages = Math.ceil(total / limit);
+
+    return sendResponse(res, 200, {
+      data: devices,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages
+      }
+    });
+  } catch (error) {
+    console.log("Error fetching school devices", error);
+    return sendError(res, 500, 'Error fetching school devices', error);
+  }
+};
+
 module.exports = {
   getAllDevices,
   getDeviceById,
@@ -389,5 +460,6 @@ module.exports = {
   deleteDevice,
   toggleDeviceStatus,
   updateHeartbeat,
-  processCheckIn
+  processCheckIn,
+  getSchoolDevices
 }; 

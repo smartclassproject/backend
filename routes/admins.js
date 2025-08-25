@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/admins');
-const { validateAdmin, validateAdminUpdate } = require('../middlewares/validation');
+const { validateAdmin, validateAdminUpdate, validateObjectId } = require('../middlewares/validation');
 const { authorize } = require('../middlewares/auth');
 
 /**
@@ -12,20 +12,13 @@ const { authorize } = require('../middlewares/auth');
  *       type: object
  *       required:
  *         - email
- *         - password
  *         - role
  *         - schoolId
  *       properties:
- *         username:
- *           type: string
- *           description: Admin username
  *         email:
  *           type: string
  *           format: email
  *           description: Admin email address
- *         password:
- *           type: string
- *           description: Admin password
  *         role:
  *           type: string
  *           enum: [super_admin, school_admin]
@@ -46,109 +39,21 @@ const { authorize } = require('../middlewares/auth');
  *           type: boolean
  *           default: true
  *           description: Admin account status
+ *         passwordSetup:
+ *           type: boolean
+ *           default: false
+ *           description: Whether password has been set up
  */
 
 /**
- * @swagger
- * /api/admins:
- *   get:
- *     summary: Get all admin users with pagination and filtering
- *     tags: [Admins]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Page number
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Number of items per page
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search by username, email, or name
- *       - in: query
- *         name: role
- *         schema:
- *           type: string
- *           enum: [super_admin, school_admin]
- *         description: Filter by role
- *       - in: query
- *         name: schoolId
- *         schema:
- *           type: string
- *         description: Filter by school ID
- *       - in: query
- *         name: isActive
- *         schema:
- *           type: boolean
- *         description: Filter by active status
- *     responses:
- *       200:
- *         description: List of admin users
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   type: array
- *                   items:
- *                     $ref: '#/components/schemas/AdminUser'
- *                 pagination:
- *                   type: object
- *                   properties:
- *                     page:
- *                       type: integer
- *                     limit:
- *                       type: integer
- *                     total:
- *                       type: integer
- *                     pages:
- *                       type: integer
+ * Get all admin users with pagination and filtering
  */
 router.get('/', authorize('super_admin'), adminController.getAllAdmins);
 
 /**
- * @swagger
- * /api/admins/{id}:
- *   get:
- *     summary: Get admin user by ID
- *     tags: [Admins]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Admin user ID
- *     responses:
- *       200:
- *         description: Admin user details
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                 data:
- *                   $ref: '#/components/schemas/AdminUser'
- *       404:
- *         description: Admin user not found
+ * Get admin user by ID
  */
-router.get('/:id', authorize('super_admin', 'school_admin'), adminController.getAdminById);
+router.get('/:id', authorize('super_admin', 'school_admin'), validateObjectId(), adminController.getAdminById);
 
 /**
  * @swagger
@@ -303,7 +208,7 @@ router.post('/', authorize('super_admin'), validateAdmin, adminController.create
  *       404:
  *         description: Admin user not found
  */
-router.put('/:id', authorize('super_admin'), validateAdminUpdate, adminController.updateAdmin);
+router.put('/:id', authorize('super_admin'), validateObjectId(), validateAdminUpdate, adminController.updateAdmin);
 
 /**
  * @swagger
@@ -326,7 +231,7 @@ router.put('/:id', authorize('super_admin'), validateAdminUpdate, adminControlle
  *       404:
  *         description: Admin user not found
  */
-router.delete('/:id', authorize('super_admin'), adminController.deleteAdmin);
+router.delete('/:id', authorize('super_admin'), validateObjectId(), adminController.deleteAdmin);
 
 /**
  * @swagger
@@ -349,7 +254,7 @@ router.delete('/:id', authorize('super_admin'), adminController.deleteAdmin);
  *       404:
  *         description: Admin user not found
  */
-router.patch('/:id/toggle-status', authorize('super_admin'), adminController.toggleAdminStatus);
+router.patch('/:id/toggle-status', authorize('super_admin'), validateObjectId(), adminController.toggleAdminStatus);
 
 /**
  * @swagger
@@ -388,7 +293,7 @@ router.patch('/:id/toggle-status', authorize('super_admin'), adminController.tog
  *       404:
  *         description: Admin user not found
  */
-router.patch('/:id/change-password', authorize('super_admin', 'school_admin'), adminController.changePassword);
+router.patch('/:id/change-password', authorize('super_admin', 'school_admin'), validateObjectId(), adminController.changePassword);
 
 /**
  * @swagger
@@ -477,5 +382,99 @@ router.get('/profile/me', authorize('super_admin', 'school_admin'), adminControl
  *         description: Validation error
  */
 router.put('/profile/me', authorize('super_admin', 'school_admin'), adminController.updateMyProfile);
+
+
+/**
+ * @swagger
+ * /api/admins/forgot-password:
+ *   post:
+ *     summary: Request password reset
+ *     tags: [Admins]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Admin email address
+ *     responses:
+ *       200:
+ *         description: Password reset email sent
+ *       404:
+ *         description: Email not found
+ */
+router.post('/forgot-password', adminController.forgotPassword);
+
+/**
+ * @swagger
+ * /api/admins/resend-password-setup:
+ *   post:
+ *     summary: Resend password setup email
+ *     tags: [Admins]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Admin email address
+ *     responses:
+ *       200:
+ *         description: Password setup email resent successfully
+ *       400:
+ *         description: Admin already has password set up
+ *       404:
+ *         description: Admin not found
+ */
+router.post('/resend-password-setup', adminController.resendPasswordSetupEmail);
+
+/**
+ * @swagger
+ * /api/admins/create-password-manually:
+ *   post:
+ *     summary: Create password manually (super admin only)
+ *     tags: [Admins]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - adminId
+ *               - password
+ *             properties:
+ *               adminId:
+ *                 type: string
+ *                 description: ID of the admin user
+ *               password:
+ *                 type: string
+ *                 description: New password
+ *                 minLength: 4
+ *     responses:
+ *       200:
+ *         description: Password created successfully
+ *       400:
+ *         description: Invalid input or admin already has password
+ *       403:
+ *         description: Only super admins can perform this action
+ *       404:
+ *         description: Admin not found
+ */
+router.post('/create-password-manually', authorize('super_admin'), adminController.createPasswordManually);
 
 module.exports = router; 

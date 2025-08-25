@@ -1,17 +1,9 @@
 const Teacher = require('../models/Teacher');
 const PDFDocument = require('pdfkit');
-const { 
-  successResponse, 
-  errorResponse, 
-  paginatedResponse, 
-  createdResponse, 
-  updatedResponse, 
-  deletedResponse, 
-  notFoundResponse 
-} = require('../utils/response');
+const {  sendError, sendResponse} = require('../utils/response');
 
 // GET /api/teachers - Get all teachers with pagination, search and filters
-exports.getAllTeachers = async (req, res, next) => {
+exports.getAllTeachers = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -57,14 +49,14 @@ exports.getAllTeachers = async (req, res, next) => {
       Teacher.countDocuments(query)
     ]);
 
-    return paginatedResponse(res, 'Teachers retrieved successfully', teachers, page, limit, total);
+    return sendResponse(res, 200, { message: 'Teachers retrieved successfully', data: teachers, pagination: { page, limit, total } });
   } catch (error) {
-    next(error);
+    return sendError(res, 500, 'Internal server error');
   }
 };
 
 // GET /api/teachers/:id - Get teacher by ID
-exports.getTeacherById = async (req, res, next) => {
+exports.getTeacherById = async (req, res) => {
   try {
     const teacher = await Teacher.findById(req.params.id)
       .populate('schedulesCount')
@@ -74,14 +66,14 @@ exports.getTeacherById = async (req, res, next) => {
       return notFoundResponse(res, 'Teacher not found');
     }
 
-    return successResponse(res, 200, 'Teacher retrieved successfully', teacher);
+    return sendResponse(res, 200, { message: 'Teacher retrieved successfully', data: teacher });
   } catch (error) {
-    next(error);
+    return sendError(res, 500, 'Internal server error');
   }
 };
 
 // POST /api/teachers - Create new teacher
-exports.createTeacher = async (req, res, next) => {
+exports.createTeacher = async (req, res) => {
   try {
     const {
       name,
@@ -110,14 +102,14 @@ exports.createTeacher = async (req, res, next) => {
 
     await teacher.save();
 
-    return createdResponse(res, 'Teacher created successfully', teacher);
+    return sendResponse(res, 201, { message: 'Teacher created successfully', data: teacher });
   } catch (error) {
-    next(error);
+    return sendError(res, 500, 'Internal server error');
   }
 };
 
 // PUT /api/teachers/:id - Update teacher
-exports.updateTeacher = async (req, res, next) => {
+exports.updateTeacher = async (req, res) => {
   try {
     const {
       name,
@@ -131,7 +123,7 @@ exports.updateTeacher = async (req, res, next) => {
 
     const teacher = await Teacher.findById(req.params.id);
     if (!teacher) {
-      return notFoundResponse(res, 'Teacher not found');
+      return sendError(res, 404, 'Teacher not found');
     }
 
     // Check if email is being changed and conflicts with existing
@@ -141,7 +133,7 @@ exports.updateTeacher = async (req, res, next) => {
         _id: { $ne: teacher._id }
       });
       if (existingTeacher) {
-        return errorResponse(res, 409, 'Email already exists');
+        return sendError(res, 409, 'Email already exists');
       }
     }
 
@@ -156,19 +148,19 @@ exports.updateTeacher = async (req, res, next) => {
 
     await teacher.save();
 
-    return updatedResponse(res, 'Teacher updated successfully', teacher);
+    return sendResponse(res, 200, { message: 'Teacher updated successfully', data: teacher });
   } catch (error) {
-    next(error);
+    return sendError(res, 500, 'Internal server error');
   }
 };
 
 // DELETE /api/teachers/:id - Delete teacher
-exports.deleteTeacher = async (req, res, next) => {
+exports.deleteTeacher = async (req, res) => {
   try {
     const teacher = await Teacher.findById(req.params.id);
     
     if (!teacher) {
-      return notFoundResponse(res, 'Teacher not found');
+      return sendError(res, 404, 'Teacher not found');
     }
 
     // Check if teacher has active schedules
@@ -179,19 +171,19 @@ exports.deleteTeacher = async (req, res, next) => {
     });
 
     if (hasActiveSchedules) {
-      return errorResponse(res, 400, 'Cannot delete teacher with active schedules. Please deactivate instead.');
+      return sendError(res, 400, 'Cannot delete teacher with active schedules. Please deactivate instead.');
     }
 
     await Teacher.findByIdAndDelete(req.params.id);
 
-    return deletedResponse(res, 'Teacher deleted successfully');
+    return sendResponse(res, 200, { message: 'Teacher deleted successfully' });
   } catch (error) {
-    next(error);
+    return sendError(res, 500, 'Internal server error');
   }
 };
 
 // GET /api/teachers/export/pdf - Export teachers to PDF
-exports.exportTeachersToPDF = async (req, res, next) => {
+exports.exportTeachersToPDF = async (req, res) => {
   try {
     const search = req.query.search || '';
     const department = req.query.department || '';
@@ -266,5 +258,116 @@ exports.exportTeachersToPDF = async (req, res, next) => {
     doc.end();
   } catch (error) {
     next(error);
+  }
+}; 
+
+// GET /api/teachers/school/teachers - Get all teachers across all schools (Super Admin Only)
+exports.getAllTeachersAcrossSchools = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+    const department = req.query.department || '';
+    const status = req.query.status || '';
+    const schoolId = req.query.schoolId || '';
+    const skip = (page - 1) * limit;
+
+    // Build query
+    const query = {};
+
+    // Add search filter
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Add department filter
+    if (department) {
+      query.department = { $regex: department, $options: 'i' };
+    }
+
+    // Add status filter
+    if (status) {
+      query.isActive = status === 'active';
+    }
+
+    // Add school filter
+    if (schoolId) {
+      query.schoolId = schoolId;
+    }
+
+    // Execute query with pagination
+    const [teachers, total] = await Promise.all([
+      Teacher.find(query)
+        .populate('schoolId', 'name')
+        .populate('schedulesCount')
+        .populate('activeSchedulesCount')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Teacher.countDocuments(query)
+    ]);
+
+    return sendResponse(res, 200, { 
+      message: 'Teachers across all schools retrieved successfully', 
+      data: teachers, 
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) } 
+    });
+  } catch (error) {
+    return sendError(res, 500, 'Internal server error');
+  }
+}; 
+
+// GET /api/teachers/school/teachers - Get teachers from current user's school (School Admin Only)
+exports.getMySchoolTeachers = async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+    const department = req.query.department || '';
+    const status = req.query.status || '';
+    const skip = (page - 1) * limit;
+
+    // Build query - only teachers from current user's school
+    const query = { schoolId: req.user.schoolId };
+
+    // Add search filter
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Add department filter
+    if (department) {
+      query.department = { $regex: department, $options: 'i' };
+    }
+
+    // Add status filter
+    if (status) {
+      query.isActive = status === 'active';
+    }
+
+    // Execute query with pagination
+    const [teachers, total] = await Promise.all([
+      Teacher.find(query)
+        .populate('schedulesCount')
+        .populate('activeSchedulesCount')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit),
+      Teacher.countDocuments(query)
+    ]);
+
+    return sendResponse(res, 200, { 
+      message: 'School teachers retrieved successfully', 
+      data: teachers, 
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) } 
+    });
+  } catch (error) {
+    return sendError(res, 500, 'Internal server error');
   }
 }; 

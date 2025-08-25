@@ -1,6 +1,17 @@
+const mongoose = require('mongoose');
+
 /**
  * Utility functions for consistent API responses
  */
+
+/**
+ * Check if a string is a valid MongoDB ObjectId
+ * @param {string} id - The string to validate
+ * @returns {boolean} - True if valid ObjectId, false otherwise
+ */
+const isValidObjectId = (id) => {
+  return mongoose.Types.ObjectId.isValid(id);
+};
 
 /**
  * Send a successful response
@@ -124,5 +135,6 @@ module.exports = {
   sendValidationError,
   sendNotFound,
   sendUnauthorized,
-  sendForbidden
+  sendForbidden,
+  isValidObjectId
 };

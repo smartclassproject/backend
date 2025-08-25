@@ -10,7 +10,9 @@
     "dev": "nodemon app.js",
     "start": "node app.js",
     "create-super-admin": "node scripts/createSuperAdmin.js",
-    "setup-data": "node scripts/setupInitialData.js"
+    "setup-data": "node scripts/setupInitialData.js",
+    "test-email": "node scripts/testEmail.js",
+    "test-admin-features": "node scripts/testAdminFeatures.js"
   },
   "keywords": [
     "smartclass",
@@ -35,7 +37,7 @@
     "mongoose": "^8.16.2",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
-    "nodemailer": "^6.9.7",
+    "nodemailer": "^6.10.1",
     "pdfkit": "^0.14.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"

@@ -60,7 +60,7 @@ const adminUserSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: [true, 'Password is required'],
+    required: false, // Password is not required initially
     minlength: [4, 'Password must be at least 4 characters long']
   },
   name: {
@@ -70,11 +70,6 @@ const adminUserSchema = new mongoose.Schema({
   phone: {
     type: String,
     trim: true
-  },
-  status: {
-    type: String,
-    enum: ['active', 'inactive'],
-    default: 'active'
   },
   role: {
     type: String,
@@ -93,6 +88,10 @@ const adminUserSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  passwordSetup: {
+    type: Boolean,
+    default: false
+  },
   lastLogin: {
     type: Date
   }
@@ -103,17 +102,17 @@ const adminUserSchema = new mongoose.Schema({
 });
 
 // Hash password before saving
-adminUserSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+// adminUserSchema.pre('save', async function(next) {
+//   if (!this.isModified('password')) return next();
   
-  try {
-    const salt = await bcrypt.genSalt(12);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
+//   try {
+//     const salt = await bcrypt.genSalt(12);
+//     this.password = await bcrypt.hash(this.password, salt);
+//     next();
+//   } catch (error) {
+//     next(error);
+//   }
+// });
 
 // Method to compare password
 adminUserSchema.methods.comparePassword = async function(candidatePassword) {

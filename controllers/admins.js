@@ -3,6 +3,8 @@ const School = require('../models/School');
 const { sendResponse, sendError } = require('../utils/response');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const emailService = require('../utils/emailService');
+const PasswordToken = require('../models/PasswordToken');
 
 /**
  * Get all admin users with pagination and filtering
@@ -55,13 +57,19 @@ const getAllAdmins = async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
 
+    // Add password setup status for each admin
+    const adminsWithStatus = admins.map(admin => {
+      const adminObj = admin.toObject();
+      adminObj.needsPasswordSetup = !admin.passwordSetup;
+      return adminObj;
+    });
+
     const pages = Math.ceil(total / limit);
 
     sendResponse(res, 200, {
-      data: admins,
+      data: adminsWithStatus,
       pagination: {
         page: parseInt(page),
-        limit: parseInt(limit),
         total,
         pages
       }
@@ -101,17 +109,18 @@ const getAdminById = async (req, res) => {
  * Create new admin user
  */
 const createAdmin = async (req, res) => {
+  let admin = null;
+  let passwordToken = null;
+  
   try {
     const {
       email,
-      password,
       role,
       schoolId,
       firstName,
       lastName,
       phone
     } = req.body;
-
 
     // Check if email already exists
     const existingEmail = await AdminUser.findOne({ email });
@@ -127,32 +136,88 @@ const createAdmin = async (req, res) => {
       }
     }
 
-    // Hash password
-    const saltRounds = 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    // Get school information for email (do this before creating admin)
+    let schoolInfo = null;
+    if (schoolId) {
+      schoolInfo = await School.findById(schoolId).select('name location');
+    }
 
-    // Create admin user
-    const admin = new AdminUser({
+    // Create admin user without password
+    admin = new AdminUser({
       email,
-      password: hashedPassword,
       role,
       schoolId,
       name: `${firstName} ${lastName}`,
-      phone
+      phone,
+      passwordSetup: false // Password setup is pending
     });
 
+    // Save admin user
     await admin.save();
+
+    // Create password setup token
+    passwordToken = await PasswordToken.createToken(admin._id, 'AdminUser', 'setup');
+
+    // Try to send password setup email (but don't fail if it doesn't work)
+    let emailSent = false;
+    try {
+      await emailService.sendPasswordSetupEmail(
+        admin.email,
+        passwordToken.token,
+        firstName,
+        role,
+        schoolInfo
+      );
+      emailSent = true;
+      console.log(`✅ Password setup email sent successfully to ${email}`);
+    } catch (emailError) {
+      console.error(`⚠️ Failed to send password setup email to ${email}:`, emailError.message);
+      console.log(`💡 Admin user created successfully. Use resend endpoint or manual password creation if needed.`);
+      
+      // Note: We don't delete the admin or token - they can still use resend or manual creation
+    }
 
     // Return admin without password
     const adminResponse = admin.toObject();
     delete adminResponse.password;
 
-    return sendResponse(res, 201, { 
-      data: adminResponse,
-      message: 'Admin user created successfully'
-    });
+    // Return success response regardless of email status
+    if (emailSent) {
+      return sendResponse(res, 201, { 
+        data: adminResponse,
+        message: 'Admin user created successfully. Password setup email has been sent.'
+      });
+    } else {
+      return sendResponse(res, 201, { 
+        data: adminResponse,
+        message: 'Admin user created successfully. Password setup email could not be sent. Use resend endpoint or contact super admin for manual password setup.',
+        warning: 'Email delivery failed - admin can use resend endpoint or super admin can create password manually'
+      });
+    }
+    
   } catch (error) {
-    sendError(res, 500, 'Error creating admin user', error);
+    console.error('Error in createAdmin:', error);
+    
+    // Cleanup: Delete any created resources if something failed
+    if (admin && admin._id) {
+      try {
+        await AdminUser.findByIdAndDelete(admin._id);
+        console.log(`Cleaned up admin user: ${admin._id}`);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup admin user:', cleanupError);
+      }
+    }
+    
+    if (passwordToken && passwordToken._id) {
+      try {
+        await PasswordToken.findByIdAndDelete(passwordToken._id);
+        console.log(`Cleaned up password token: ${passwordToken._id}`);
+      } catch (cleanupError) {
+        console.error('Failed to cleanup password token:', cleanupError);
+      }
+    }
+    
+    return sendError(res, 500, 'Error creating admin user', error);
   }
 };
 
@@ -232,9 +297,10 @@ const deleteAdmin = async (req, res) => {
 
     await AdminUser.findByIdAndDelete(id);
 
-    sendResponse(res, 200, { 
+    return sendResponse(res, 200, { 
       message: 'Admin user deleted successfully'
     });
+    
   } catch (error) {
     sendError(res, 500, 'Error deleting admin user', error);
   }
@@ -369,6 +435,181 @@ const getAvailableSchools = async (req, res) => {
   }
 };
 
+
+
+/**
+ * Request password reset
+ */
+const forgotPassword = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return sendError(res, 400, 'Email is required');
+    }
+
+    // Find admin by email
+    const admin = await AdminUser.findOne({ email: email.toLowerCase() });
+    if (!admin) {
+      // Don't reveal if email exists or not for security
+      return sendResponse(res, 200, { 
+        message: 'If an account with this email exists, a password reset email has been sent.'
+      });
+    }
+
+    // Check if admin has set up their password
+    if (!admin.passwordSetup) {
+      return sendError(res, 400, 'Please complete your initial password setup first');
+    }
+
+    // Create password reset token
+    const passwordToken = await PasswordToken.createToken(admin._id, 'AdminUser', 'reset');
+
+    // Send password reset email
+    try {
+      await emailService.sendPasswordResetEmail(
+        admin.email,
+        passwordToken.token,
+        admin.name.split(' ')[0] || 'User'
+      );
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError);
+      // Delete the token if email fails
+      await PasswordToken.findByIdAndDelete(passwordToken._id);
+      return sendError(res, 500, 'Failed to send password reset email. Please try again.');
+    }
+
+    sendResponse(res, 200, { 
+      message: 'If an account with this email exists, a password reset email has been sent.'
+    });
+  } catch (error) {
+    sendError(res, 500, 'Error processing password reset request', error);
+  }
+};
+
+/**
+ * Resend password setup email
+ */
+const resendPasswordSetupEmail = async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return sendError(res, 400, 'Email is required');
+    }
+
+    // Find admin by email
+    const admin = await AdminUser.findOne({ email: email.toLowerCase() });
+    if (!admin) {
+      return sendError(res, 404, 'Admin user not found');
+    }
+
+    // Check if admin already has password set up
+    if (admin.passwordSetup) {
+      return sendError(res, 400, 'Admin user already has password set up');
+    }
+
+    // Delete any existing unused tokens for this user
+    await PasswordToken.deleteMany({ 
+      userId: admin._id, 
+      type: 'setup', 
+      used: false 
+    });
+
+    // Create new password setup token
+    const passwordToken = await PasswordToken.createToken(admin._id, 'AdminUser', 'setup');
+
+    // Get school information if available
+    let schoolInfo = null;
+    if (admin.schoolId) {
+      schoolInfo = await School.findById(admin.schoolId).select('name location');
+    }
+
+    // Send password setup email
+    try {
+      await emailService.sendPasswordSetupEmail(
+        admin.email,
+        passwordToken.token,
+        admin.name.split(' ')[0] || 'User',
+        admin.role,
+        schoolInfo
+      );
+    } catch (emailError) {
+      console.error('Failed to resend password setup email:', emailError);
+      // Delete the token if email fails
+      await PasswordToken.findByIdAndDelete(passwordToken._id);
+      return sendError(res, 500, 'Failed to resend password setup email. Please try again.');
+    }
+
+    sendResponse(res, 200, { 
+      message: 'Password setup email has been resent successfully.'
+    });
+  } catch (error) {
+    sendError(res, 500, 'Error resending password setup email', error);
+  }
+};
+
+/**
+ * Create password manually (super admin only)
+ */
+const createPasswordManually = async (req, res) => {
+  try {
+    const { adminId, password } = req.body;
+
+    if (!adminId || !password) {
+      return sendError(res, 400, 'Admin ID and password are required');
+    }
+
+    if (password.length < 4) {
+      return sendError(res, 400, 'Password must be at least 4 characters long');
+    }
+
+    // Check if current user is super admin
+    if (req.user.role !== 'super_admin') {
+      return sendError(res, 403, 'Only super admins can create passwords manually');
+    }
+
+    // Find the admin user
+    const admin = await AdminUser.findById(adminId);
+    if (!admin) {
+      return sendError(res, 404, 'Admin user not found');
+    }
+
+    // Check if admin already has password set up
+    if (admin.passwordSetup) {
+      return sendError(res, 400, 'Admin user already has password set up');
+    }
+
+    // Hash the password
+    const saltRounds = 12;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Update admin with password and mark as set up
+    admin.password = hashedPassword;
+    admin.passwordSetup = true;
+    await admin.save();
+
+    // Delete any existing unused setup tokens for this user
+    await PasswordToken.deleteMany({ 
+      userId: admin._id, 
+      type: 'setup', 
+      used: false 
+    });
+
+    sendResponse(res, 200, { 
+      message: 'Password created successfully for admin user.',
+      data: {
+        adminId: admin._id,
+        email: admin.email,
+        name: admin.name,
+        role: admin.role
+      }
+    });
+  } catch (error) {
+    sendError(res, 500, 'Error creating password manually', error);
+  }
+};
+
 module.exports = {
   getAllAdmins,
   getAdminById,
@@ -379,5 +620,8 @@ module.exports = {
   changePassword,
   getMyProfile,
   updateMyProfile,
-  getAvailableSchools
+  getAvailableSchools,
+  forgotPassword,
+  resendPasswordSetupEmail,
+  createPasswordManually
 }; 

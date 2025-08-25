@@ -619,6 +619,208 @@ const bulkUpdateAttendance = async (req, res) => {
   }
 };
 
+/**
+ * Get all attendance records in a school (school admin only)
+ */
+const getSchoolAttendance = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 10,
+      search = '',
+      majorId = '',
+      courseId = '',
+      status = '',
+      startDate = '',
+      endDate = '',
+      classroom = '',
+      deviceId = ''
+    } = req.query;
+
+    const skip = (page - 1) * limit;
+    
+    // Build filter object - school admins can only see attendance from their school
+    const filter = {};
+    
+    if (majorId) {
+      filter.majorId = majorId;
+    }
+    
+    if (courseId) {
+      filter.courseId = courseId;
+    }
+    
+    if (status) {
+      filter.status = status;
+    }
+    
+    if (startDate && endDate) {
+      filter.sessionDate = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    if (classroom) {
+      filter.classroom = { $regex: classroom, $options: 'i' };
+    }
+
+    if (deviceId) {
+      filter.deviceId = deviceId;
+    }
+
+    // For school admins, we need to filter by school through related models
+    // We'll use aggregation to join with Student and Course models to filter by school
+    const pipeline = [
+      // First, get students from the school
+      {
+        $lookup: {
+          from: 'students',
+          localField: 'studentId',
+          foreignField: '_id',
+          as: 'student'
+        }
+      },
+      {
+        $unwind: '$student'
+      },
+      // Filter by school ID from the student
+      {
+        $match: {
+          'student.schoolId': req.user.schoolId
+        }
+      },
+      // Apply other filters
+      {
+        $match: filter
+      },
+      // Lookup course information
+      {
+        $lookup: {
+          from: 'courses',
+          localField: 'courseId',
+          foreignField: '_id',
+          as: 'course'
+        }
+      },
+      {
+        $unwind: '$course'
+      },
+      // Lookup schedule information
+      {
+        $lookup: {
+          from: 'courseschedules',
+          localField: 'scheduleId',
+          foreignField: '_id',
+          as: 'schedule'
+        }
+      },
+      {
+        $unwind: '$schedule'
+      },
+      // Lookup major information
+      {
+        $lookup: {
+          from: 'majors',
+          localField: 'student.majorId',
+          foreignField: '_id',
+          as: 'major'
+        }
+      },
+      {
+        $unwind: '$major'
+      },
+      // Add search functionality
+      ...(search ? [{
+        $match: {
+          $or: [
+            { 'student.firstName': { $regex: search, $options: 'i' } },
+            { 'student.lastName': { $regex: search, $options: 'i' } },
+            { 'student.studentId': { $regex: search, $options: 'i' } },
+            { 'course.name': { $regex: search, $options: 'i' } }
+          ]
+        }
+      }] : []),
+      // Sort by session date and check-in time
+      {
+        $sort: {
+          sessionDate: -1,
+          checkInTime: -1
+        }
+      },
+      // Skip and limit for pagination
+      {
+        $skip: skip
+      },
+      {
+        $limit: parseInt(limit)
+      },
+      // Project the final structure
+      {
+        $project: {
+          _id: 1,
+          studentId: {
+            _id: '$student._id',
+            firstName: '$student.firstName',
+            lastName: '$student.lastName',
+            studentId: '$student.studentId',
+            majorId: '$student.majorId'
+          },
+          courseId: {
+            _id: '$course._id',
+            name: '$course.name',
+            code: '$course.code'
+          },
+          scheduleId: {
+            _id: '$schedule._id',
+            classroom: '$schedule.classroom',
+            weeklySessions: '$schedule.weeklySessions'
+          },
+          deviceId: 1,
+          classroom: 1,
+          checkInTime: 1,
+          status: 1,
+          notes: 1,
+          sessionDate: 1,
+          sessionDay: 1,
+          sessionStartTime: 1,
+          sessionEndTime: 1,
+          cardId: 1,
+          deviceLocation: 1,
+          createdAt: 1,
+          updatedAt: 1
+        }
+      }
+    ];
+
+    // Get total count using a similar pipeline but without skip/limit
+    const countPipeline = [
+      ...pipeline.slice(0, -2) // Remove skip and limit
+    ];
+    
+    const [attendance, totalResult] = await Promise.all([
+      Attendance.aggregate(pipeline),
+      Attendance.aggregate([...countPipeline, { $count: 'total' }])
+    ]);
+
+    const total = totalResult.length > 0 ? totalResult[0].total : 0;
+    const pages = Math.ceil(total / limit);
+
+    return sendResponse(res, 200, {
+      data: attendance,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages
+      }
+    });
+  } catch (error) {
+    console.log("Error fetching school attendance", error);
+    return sendError(res, 500, 'Error fetching school attendance', error);
+  }
+};
+
 module.exports = {
   getAllAttendance,
   getAttendanceById,
@@ -628,5 +830,6 @@ module.exports = {
   processCheckIn,
   getAttendanceStats,
   generateReport,
-  bulkUpdateAttendance
+  bulkUpdateAttendance,
+  getSchoolAttendance
 }; 

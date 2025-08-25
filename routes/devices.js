@@ -4,8 +4,6 @@ const deviceController = require('../controllers/devices');
 const { validateDevice, validateDeviceUpdate } = require('../middlewares/validation');
 const { authorize } = require('../middlewares/auth');
 
-
-
 /**
  * @swagger
  * /api/devices:
@@ -418,6 +416,120 @@ router.post('/:id/heartbeat', authorize('super_admin', 'school_admin'), deviceCo
  *       404:
  *         description: Device not found
  */
+/**
+ * @swagger
+ * /api/devices/school/devices:
+ *   get:
+ *     summary: Get all devices in a school (school admin only)
+ *     tags: [Devices]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by serial number, classroom, location, or device type
+ *       - in: query
+ *         name: isActive
+ *         schema:
+ *           type: boolean
+ *         description: Filter by active status
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [Operational, Maintenance, Offline, Error]
+ *         description: Filter by device status
+ *       - in: query
+ *         name: classroom
+ *         schema:
+ *           type: string
+ *         description: Filter by classroom
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved school devices
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Device'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 25
+ *                     pages:
+ *                       type: integer
+ *                       example: 3
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied. No token provided."
+ *       403:
+ *         description: Forbidden - Insufficient permissions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied. School admin role required."
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.get('/school/devices', authorize('school_admin'), deviceController.getSchoolDevices);
+
 router.post('/check-in/:deviceId', deviceController.processCheckIn);
 
 module.exports = router; 

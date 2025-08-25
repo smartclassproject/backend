@@ -83,11 +83,13 @@ const teacherSchema = new mongoose.Schema({
   department: {
     type: String,
     trim: true,
+    nullable: true,
     maxlength: [100, 'Department cannot exceed 100 characters']
   },
   specialization: {
     type: String,
     trim: true,
+    nullable: true,
     maxlength: [200, 'Specialization cannot exceed 200 characters']
   },
   isActive: {

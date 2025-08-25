@@ -60,9 +60,12 @@ const mongoose = require('mongoose');
  *         cardId: "RFID001"
  *         majorId: "507f1f77bcf86cd799439012"
  *         class: "A"
- *         age: 20
+ *         dateOfBirth: "2004-05-15"
  *         email: "john.doe@student.edu"
  *         phone: "+1234567890"
+ *         profileUrl: "https://example.com/profile.jpg"
+ *         isActive: true
+ *         enrollmentDate: "2024-05-15"
  */
 
 const studentSchema = new mongoose.Schema({
@@ -100,11 +103,18 @@ const studentSchema = new mongoose.Schema({
     trim: true,
     maxlength: [10, 'Class cannot exceed 10 characters']
   },
-  age: {
-    type: Number,
-    required: [true, 'Age is required'],
-    min: [16, 'Age must be at least 16'],
-    max: [100, 'Age cannot exceed 100']
+  dateOfBirth: {
+    type: Date,
+    required: [true, 'Date of birth is required'],
+    validate: {
+      validator: function(value) {
+        const today = new Date();
+        const minDate = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
+        const maxDate = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate());
+        return value >= minDate && value <= maxDate;
+      },
+      message: 'Date of birth must be between 10 and 100 years ago'
+    }
   },
   email: {
     type: String,
@@ -119,7 +129,8 @@ const studentSchema = new mongoose.Schema({
   },
   profileUrl: {
     type: String,
-    trim: true
+    trim: true,
+    nullable: true
   },
   isActive: {
     type: Boolean,

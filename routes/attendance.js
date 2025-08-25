@@ -524,4 +524,140 @@ router.get('/export/pdf', authenticateToken, attendanceController.generateReport
  */
 router.get('/statistics', authenticateToken, attendanceController.getAttendanceStats);
 
+/**
+ * @swagger
+ * /api/attendance/school/attendance:
+ *   get:
+ *     summary: Get all attendance records in a school (school admin only)
+ *     tags: [Attendance]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search by student name, student ID, or course name
+ *       - in: query
+ *         name: majorId
+ *         schema:
+ *           type: string
+ *         description: Filter by major ID
+ *       - in: query
+ *         name: courseId
+ *         schema:
+ *           type: string
+ *         description: Filter by course ID
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [Present, Absent, Late]
+ *         description: Filter by attendance status
+ *       - in: query
+ *         name: startDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for filtering (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for filtering (YYYY-MM-DD)
+ *       - in: query
+ *         name: classroom
+ *         schema:
+ *           type: string
+ *         description: Filter by classroom
+ *       - in: query
+ *         name: deviceId
+ *         schema:
+ *           type: string
+ *         description: Filter by device ID
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved school attendance records
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Attendance'
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     page:
+ *                       type: integer
+ *                       example: 1
+ *                     limit:
+ *                       type: integer
+ *                       example: 10
+ *                     total:
+ *                       type: integer
+ *                       example: 100
+ *                     pages:
+ *                       type: integer
+ *                       example: 10
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied. No token provided."
+ *       403:
+ *         description: Forbidden - Insufficient permissions
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Access denied. School admin role required."
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 message:
+ *                   type: string
+ *                   example: "Internal server error"
+ */
+router.get('/school/attendance', authenticateToken, authorizeRoles('school_admin'), attendanceController.getSchoolAttendance);
+
 module.exports = router; 

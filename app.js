@@ -65,14 +65,15 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/schools', authenticateToken, schoolRoutes);
 app.use('/api/admins', authenticateToken, adminRoutes);
-app.use('/api/students', authenticateToken, studentRoutes);
-app.use('/api/teachers', authenticateToken, teacherRoutes);
-app.use('/api/majors', authenticateToken, majorRoutes);
 app.use('/api/courses', authenticateToken, courseRoutes);
 app.use('/api/schedules', authenticateToken, scheduleRoutes);
 app.use('/api/attendance', authenticateToken, attendanceRoutes);
 app.use('/api/devices', authenticateToken, deviceRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
+
+app.use('/api/students', authenticateToken, studentRoutes);
+app.use('/api/teachers', authenticateToken, teacherRoutes);
+app.use('/api/majors', authenticateToken, majorRoutes);
 
 // Swagger documentation
 const swaggerJsdoc = require('swagger-jsdoc');

@@ -1,14 +1,6 @@
 const Course = require('../models/Course');
 const Major = require('../models/Major');
-const { 
-  successResponse, 
-  errorResponse, 
-  paginatedResponse, 
-  createdResponse, 
-  updatedResponse, 
-  deletedResponse, 
-  notFoundResponse 
-} = require('../utils/response');
+const {sendResponse, sendError, isValidObjectId } = require('../utils/response');
 
 // GET /api/courses - Get all courses with pagination and search
 exports.getAllCourses = async (req, res, next) => {
@@ -21,7 +13,7 @@ exports.getAllCourses = async (req, res, next) => {
 
     // Build query based on user role
     const query = {};
-    
+
     // School admin can only see their school's courses
     if (req.user.role === 'school_admin') {
       query.schoolId = req.user.schoolId;
@@ -52,14 +44,14 @@ exports.getAllCourses = async (req, res, next) => {
       Course.countDocuments(query)
     ]);
 
-    return paginatedResponse(res, 'Courses retrieved successfully', courses, page, limit, total);
+    return sendResponse(res, 200, { message: 'Courses retrieved successfully', data: courses, pagination: { page, limit, total } });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error fetching courses', error);
   }
 };
 
 // GET /api/courses/:id - Get course by ID
-exports.getCourseById = async (req, res, next) => {
+exports.getCourseById = async (req, res) => {
   try {
     const course = await Course.findById(req.params.id)
       .populate('majorId', 'name code description')
@@ -67,37 +59,37 @@ exports.getCourseById = async (req, res, next) => {
       .populate('attendanceCount');
 
     if (!course) {
-      return notFoundResponse(res, 'Course not found');
+      return sendError(res, 404, 'Course not found');
     }
 
-    return successResponse(res, 200, 'Course retrieved successfully', course);
+    return sendResponse(res, 200, { message: 'Course retrieved successfully', data: course });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error fetching course', error);
   }
 };
 
 // POST /api/courses - Create new course
-exports.createCourse = async (req, res, next) => {
+exports.createCourse = async (req, res) => {
   try {
     const { name, code, majorId, description, credits } = req.body;
 
     // Verify major exists and belongs to the school
     const major = await Major.findById(majorId);
     if (!major) {
-      return errorResponse(res, 404, 'Major not found');
+      return sendError(res, 404, 'Major not found');
     }
 
     if (req.user.role === 'school_admin' && major.schoolId.toString() !== req.user.schoolId.toString()) {
-      return errorResponse(res, 403, 'Major does not belong to your school');
+      return sendError(res, 403, 'Major does not belong to your school');
     }
 
     // Check if course with same code already exists in the school
-    const existingCourse = await Course.findOne({ 
+    const existingCourse = await Course.findOne({
       schoolId: major.schoolId,
       code: code.toUpperCase()
     });
     if (existingCourse) {
-      return errorResponse(res, 409, 'Course with this code already exists in your school');
+      return sendError(res, 409, 'Course with this code already exists in your school');
     }
 
     const course = new Course({
@@ -114,32 +106,32 @@ exports.createCourse = async (req, res, next) => {
     const populatedCourse = await Course.findById(course._id)
       .populate('majorId', 'name code');
 
-    return createdResponse(res, 'Course created successfully', populatedCourse);
+    return sendResponse(res, 201, { message: 'Course created successfully', data: populatedCourse });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error creating course', error);
   }
 };
 
 // PUT /api/courses/:id - Update course
-exports.updateCourse = async (req, res, next) => {
+exports.updateCourse = async (req, res) => {
   try {
     const { name, code, majorId, description, credits, isActive } = req.body;
     const courseId = req.params.id;
 
     const course = await Course.findById(courseId);
     if (!course) {
-      return notFoundResponse(res, 'Course not found');
+      return sendError(res, 404, 'Course not found');
     }
 
     // Check if code is being changed and conflicts with existing course in the same school
     if (code && code.toUpperCase() !== course.code) {
-      const existingCourse = await Course.findOne({ 
+      const existingCourse = await Course.findOne({
         schoolId: course.schoolId,
         code: code.toUpperCase(),
         _id: { $ne: courseId }
       });
       if (existingCourse) {
-        return errorResponse(res, 409, 'Course with this code already exists in your school');
+          return sendError(res, 409, 'Course with this code already exists in your school');
       }
     }
 
@@ -147,11 +139,11 @@ exports.updateCourse = async (req, res, next) => {
     if (majorId && majorId !== course.majorId.toString()) {
       const major = await Major.findById(majorId);
       if (!major) {
-        return errorResponse(res, 404, 'Major not found');
+        return sendError(res, 404, 'Major not found');
       }
 
       if (req.user.role === 'school_admin' && major.schoolId.toString() !== req.user.schoolId.toString()) {
-        return errorResponse(res, 403, 'Major does not belong to your school');
+        return sendError(res, 403, 'Major does not belong to your school');
       }
     }
 
@@ -168,42 +160,47 @@ exports.updateCourse = async (req, res, next) => {
     const updatedCourse = await Course.findById(course._id)
       .populate('majorId', 'name code');
 
-    return updatedResponse(res, 'Course updated successfully', updatedCourse);
+    return sendResponse(res, 200, { message: 'Course updated successfully', data: updatedCourse });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error updating course', error);
   }
 };
 
 // DELETE /api/courses/:id - Delete course
-exports.deleteCourse = async (req, res, next) => {
+exports.deleteCourse = async (req, res) => {
   try {
+    // valid id
+    if (!isValidObjectId(req.params.id)) {
+      return sendError(res, 400, 'Invalid course ID');
+    }
+
     const course = await Course.findById(req.params.id);
-    
+
     if (!course) {
-      return notFoundResponse(res, 'Course not found');
+      return sendError(res, 404, 'Course not found');
     }
 
     // Check if course has active schedules
-    const hasActiveSchedules = await require('../models/CourseSchedule').exists({ 
+    const hasActiveSchedules = await require('../models/CourseSchedule').exists({
       courseId: course._id,
       isActive: true,
       endDate: { $gte: new Date() }
     });
 
     if (hasActiveSchedules) {
-      return errorResponse(res, 400, 'Cannot delete course with active schedules. Please deactivate instead.');
+      return sendError(res, 400, 'Cannot delete course with active schedules. Please deactivate instead.');
     }
 
     // Check if course has attendance records
     const hasAttendance = await require('../models/Attendance').exists({ courseId: course._id });
     if (hasAttendance) {
-      return errorResponse(res, 400, 'Cannot delete course with attendance records. Please deactivate instead.');
+      return sendError(res, 400, 'Cannot delete course with attendance records. Please deactivate instead.');
     }
 
     await Course.findByIdAndDelete(req.params.id);
 
-    return deletedResponse(res, 'Course deleted successfully');
+    return sendResponse(res, 200, { message: 'Course deleted successfully' });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error deleting course', error);
   }
 }; 

@@ -1,4 +1,5 @@
 const { validationResult } = require('express-validator');
+const mongoose = require('mongoose');
 
 /**
  * Middleware to check for validation errors
@@ -19,6 +20,32 @@ const validateRequest = (req, res, next) => {
   }
   
   next();
+};
+
+/**
+ * Middleware to validate MongoDB ObjectId parameters
+ * @param {string} paramName - Name of the parameter to validate (default: 'id')
+ */
+const validateObjectId = (paramName = 'id') => {
+  return (req, res, next) => {
+    const id = req.params[paramName];
+    
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: `${paramName} parameter is required`
+      });
+    }
+    
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid ${paramName} format`
+      });
+    }
+    
+    next();
+  };
 };
 
 /**
@@ -238,12 +265,7 @@ const validateAdmin = (req, res, next) => {
     });
   }
   
-  if (!password || password.length < 4) {
-    return res.status(400).json({
-      success: false,
-      message: 'Password is required and must be at least 4 characters'
-    });
-  }
+  // Password is not required during creation - will be set up via email
   
   if (!role || !['super_admin', 'school_admin'].includes(role)) {
     return res.status(400).json({
@@ -805,5 +827,6 @@ module.exports = {
   validateSchedule,
   validateScheduleUpdate,
   validateSchool,
-  validateSchoolUpdate
+  validateSchoolUpdate,
+  validateObjectId
 }; 

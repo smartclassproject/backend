@@ -20,7 +20,6 @@ const authenticateToken = async (req, res, next) => {
     
     // Find user in database
     const user = await AdminUser.findById(decoded.userId).select('-password');
-    
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -37,6 +36,7 @@ const authenticateToken = async (req, res, next) => {
 
     // Add user to request object
     req.user = user;
+    
     next();
   } catch (error) {
     if (error.name === 'JsonWebTokenError') {
@@ -73,9 +73,6 @@ const authorizeRoles = (...allowedRoles) => {
         message: 'Authentication required'
       });
     }
-
-
-    console.log('User role:', req.user.role, 'Allowed roles:', allowedRoles, 'is allowed', allowedRoles.includes(req.user.role));
 
     if (!allowedRoles.includes(req.user.role)) {
       return res.status(403).json({

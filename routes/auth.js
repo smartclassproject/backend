@@ -164,4 +164,108 @@ router.post('/logout', authController.logout);
 // @desc    Check session (whoami)
 router.get('/session', authenticateToken, authController.session);
 
+/**
+ * @swagger
+ * /api/auth/forgot-password:
+ *   post:
+ *     summary: Request password reset for forgotten password
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: User email address
+ *                 example: "admin@school.com"
+ *     responses:
+ *       200:
+ *         description: Password reset email sent (if account exists)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "If an account with that email exists, a password reset link has been sent."
+ *       400:
+ *         description: Email is required
+ *       500:
+ *         description: Failed to send password reset email
+ */
+// @route   POST /api/auth/forgot-password
+// @desc    Request password reset for forgotten password
+router.post('/forgot-password', 
+  [
+    body('email').isEmail().withMessage('Please enter a valid email')
+  ],
+  validateRequest,
+  authController.forgotPassword
+);
+
+/**
+ * @swagger
+ * /api/auth/setup-password:
+ *   post:
+ *     summary: Set up password using token from email
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - token
+ *               - password
+ *             properties:
+ *               token:
+ *                 type: string
+ *                 description: Password setup token from email
+ *               password:
+ *                 type: string
+ *                 description: New password
+ *                 minLength: 4
+ *     responses:
+ *       200:
+ *         description: Password set up successfully and user logged in
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password set up successfully. You are now logged in."
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       description: JWT authentication token
+ *                     user:
+ *                       type: object
+ *                       description: User profile information
+ *       400:
+ *         description: Invalid token or password
+ *       404:
+ *         description: Token not found or expired
+ */
+// @route   POST /api/auth/setup-password
+// @desc    Set up password using token from email
+router.post('/setup-password', authController.setupPassword);
+
 module.exports = router; 
