@@ -4,8 +4,8 @@ require('dotenv').config();
 
 // Super admin credentials
 const SUPER_ADMIN_CREDENTIALS = {
-  email: 'superadmin@smartclass.com',
-  password: 'SuperAdmin123!',
+  email: 'admin@yourdomain.com',
+  password: 'YourSecurePassword123!',
   role: 'super_admin',
   isActive: true
 };
@@ -43,7 +43,7 @@ const createSuperAdmin = async () => {
     console.log('');
     console.log('🚀 You can now login to the SmartClass API using these credentials');
     console.log('   POST /api/auth/login');
-    console.log('   Body: { "email": "superadmin@smartclass.com", "password": "SuperAdmin123!" }');
+    console.log('   Body: { "email": "admin@yourdomain.com", "password": "YourSecurePassword123!" }');
 
   } catch (error) {
     console.error('❌ Error creating super admin:', error.message);

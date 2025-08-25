@@ -24,7 +24,7 @@ EMAIL_HOST=smtp.gmail.com
 EMAIL_PORT=587
 EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
-EMAIL_FROM=SmartClass <noreply@smartclass.com>
+EMAIL_FROM=YourApp <noreply@yourdomain.com>
 
 # Password Reset Configuration
 PASSWORD_RESET_EXPIRES_IN=1h

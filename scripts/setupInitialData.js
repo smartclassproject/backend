@@ -12,18 +12,18 @@ require('dotenv').config();
 // Initial data
 const INITIAL_DATA = {
   superAdmin: {
-    email: 'superadmin@smartclass.com',
-    password: 'SuperAdmin123!',
+    email: 'admin@yourdomain.com',
+    password: 'YourSecurePassword123!',
     role: 'super_admin',
     isActive: true
   },
   school: {
-    name: 'SmartClass Academy',
-    location: '123 Education Street, Tech City, TC 12345'
+    name: 'Your School Name',
+    location: 'Your School Address'
   },
   schoolAdmin: {
-    email: 'schooladmin@smartclass.com',
-    password: 'SchoolAdmin123!',
+    email: 'schooladmin@yourschool.com',
+    password: 'YourSecurePassword123!',
     role: 'school_admin',
     isActive: true
   },
@@ -33,8 +33,8 @@ const INITIAL_DATA = {
     description: 'Bachelor of Science in Computer Science'
   },
   teacher: {
-    name: 'Dr. Sarah Johnson',
-    email: 'sarah.johnson@smartclass.com',
+    name: 'Dr. Teacher Name',
+    email: 'teacher@yourschool.com',
     phone: '+1234567890',
     department: 'Computer Science',
     specialization: 'Software Engineering',
@@ -42,30 +42,30 @@ const INITIAL_DATA = {
   },
   students: [
     {
-      name: 'John Doe',
+      name: 'Student One',
       studentId: '2024001',
       cardId: 'RFID001',
       class: 'A',
       age: 20,
-      email: 'john.doe@student.smartclass.com',
+      email: 'student1@yourschool.com',
       phone: '+1234567891'
     },
     {
-      name: 'Jane Smith',
+      name: 'Student Two',
       studentId: '2024002',
       cardId: 'RFID002',
       class: 'A',
       age: 19,
-      email: 'jane.smith@student.smartclass.com',
+      email: 'student2@yourschool.com',
       phone: '+1234567892'
     },
     {
-      name: 'Mike Wilson',
+      name: 'Student Three',
       studentId: '2024003',
       cardId: 'RFID003',
       class: 'B',
       age: 21,
-      email: 'mike.wilson@student.smartclass.com',
+      email: 'student3@yourschool.com',
       phone: '+1234567893'
     }
   ],
@@ -82,7 +82,7 @@ const INITIAL_DATA = {
     deviceType: 'RFID Reader',
     serialNumber: 'RFID-2024-001',
     model: 'RFID-Reader-Pro',
-    manufacturer: 'SmartTech Solutions',
+    manufacturer: 'YourTech Solutions',
     firmwareVersion: 'v2.1.0'
   }
 };
@@ -249,11 +249,11 @@ const setupInitialData = async () => {
     console.log('\n🎉 Initial data setup completed successfully!');
     console.log('\n📋 Login Credentials:');
     console.log('   Super Admin:');
-    console.log('     Email: superadmin@smartclass.com');
-    console.log('     Password: SuperAdmin123!');
+    console.log('     Email: admin@yourdomain.com');
+    console.log('     Password: YourSecurePassword123!');
     console.log('   School Admin:');
-    console.log('     Email: schooladmin@smartclass.com');
-    console.log('     Password: SchoolAdmin123!');
+    console.log('     Email: schooladmin@yourschool.com');
+    console.log('     Password: YourSecurePassword123!');
     console.log('\n🚀 You can now test the SmartClass API with this data!');
 
   } catch (error) {

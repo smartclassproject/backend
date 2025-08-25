@@ -45,7 +45,7 @@ const bcrypt = require('bcryptjs');
  *           format: date-time
  *           description: The date the admin user was created
  *       example:
- *         email: "admin@smartclass.com"
+ *         email: "admin@yourdomain.com"
  *         password: "password123"
  *         role: "super_admin"
  */

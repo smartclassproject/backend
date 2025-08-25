@@ -29,7 +29,7 @@ const { body } = require('express-validator');
  *               password:
  *                 type: string
  *                 description: User password
- *                 example: "SuperAdmin123!"
+ *                 example: "YourSecurePassword123!"
  *     responses:
  *       200:
  *         description: Login successful
@@ -183,7 +183,7 @@ router.get('/session', authenticateToken, authController.session);
  *                 type: string
  *                 format: email
  *                 description: User email address
- *                 example: "admin@school.com"
+ *                 example: "admin@yourdomain.com"
  *     responses:
  *       200:
  *         description: Password reset email sent (if account exists)

@@ -11,8 +11,8 @@ const axios = require('axios');
 // Configuration
 const BASE_URL = 'http://localhost:5000/api';
 const SUPER_ADMIN_CREDENTIALS = {
-  email: 'superadmin@smartclass.com',
-  password: 'SuperAdmin123!'
+  email: 'admin@yourdomain.com',
+  password: 'YourSecurePassword123!'
 };
 
 // Helper function to make authenticated requests
@@ -65,12 +65,12 @@ const createSchoolAdminExample = async () => {
     
     const newSchoolAdmin = {
       username: 'schooladmin1',
-      email: 'schooladmin1@smartclass.com',
-      password: 'SchoolAdmin123!',
+      email: 'schooladmin1@yourschool.com',
+      password: 'YourSecurePassword123!',
       role: 'school_admin',
       schoolId: schoolId, // REQUIRED for school_admin role
-      firstName: 'Jane',
-      lastName: 'Smith',
+      firstName: 'Admin',
+      lastName: 'User',
       phone: '+1234567890'
     };
     

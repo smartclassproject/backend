@@ -51,14 +51,14 @@ A comprehensive RFID-based attendance management system for educational institut
    JWT_SECRET=your-secret-key
    
    # Email Configuration
-   EMAIL_HOST=smtp.gmail.com
-   EMAIL_PORT=587
-   EMAIL_USER=your-email@gmail.com
-   EMAIL_PASS=your-app-password
-   EMAIL_FROM=SmartClass <noreply@smartclass.com>
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+EMAIL_FROM=YourApp <noreply@yourdomain.com>
    
    # Frontend URL
-   FRONTEND_PASSWORD_SETUP_URL=http://localhost:5173/setup-password
+FRONTEND_PASSWORD_SETUP_URL=http://localhost:3000/setup-password
    ```
 
 4. **Start the server**
@@ -82,15 +82,15 @@ POST /api/auth/login
 Content-Type: application/json
 
 {
-  "email": "superadmin@smartclass.com",
-  "password": "SuperAdmin123!"
+  "email": "admin@yourdomain.com",
+  "password": "YourSecurePassword123!"
 }
 ```
 
 ### Default Credentials
 
-- **Super Admin**: `superadmin@smartclass.com` / `SuperAdmin123!`
-- **School Admin**: `schooladmin@smartclass.com` / `SchoolAdmin123!`
+- **Super Admin**: `admin@yourdomain.com` / `YourSecurePassword123!`
+- **School Admin**: `schooladmin@yourdomain.com` / `YourSecurePassword123!`
 
 ## 📚 API Endpoints
 
@@ -188,6 +188,8 @@ POST /api/admins/forgot-password
 - **Secure Tokens**: Cryptographically secure password setup tokens
 - **Automatic Cleanup**: Expired tokens and failed operations cleanup
 
+> **⚠️ Security Note**: Never commit sensitive data like real email addresses, passwords, or API keys to version control. Always use environment variables and placeholder values in documentation.
+
 ## 📊 Data Models
 
 ### Key Entities
@@ -237,8 +239,8 @@ curl -X POST "http://localhost:5000/api/schools" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "Tech Academy",
-    "location": "123 Tech Street, City, State"
+    "name": "Your School Name",
+    "location": "Your School Address"
   }'
 ```
 
@@ -248,9 +250,9 @@ curl -X POST "http://localhost:5000/api/admins" \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "firstName": "John",
-    "lastName": "Doe",
-    "email": "admin@techacademy.com",
+    "firstName": "Admin",
+    "lastName": "User",
+    "email": "admin@yourschool.com",
     "role": "school_admin",
     "schoolId": "SCHOOL_ID_HERE",
     "phone": "+1234567890"

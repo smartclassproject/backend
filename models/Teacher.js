@@ -43,8 +43,8 @@ const mongoose = require('mongoose');
  *           description: The date the teacher was created
  *       example:
  *         schoolId: "507f1f77bcf86cd799439011"
- *         name: "Dr. Jane Smith"
- *         email: "jane.smith@school.edu"
+ *         name: "Dr. Teacher Name"
+ *         email: "teacher@yourschool.com"
  *         phone: "+1234567890"
  *         department: "Computer Science"
  *         specialization: "Software Engineering"

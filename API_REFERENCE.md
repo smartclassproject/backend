@@ -15,8 +15,8 @@ Login with email and password to get JWT token.
 **Request Body:**
 ```json
 {
-  "email": "superadmin@smartclass.com",
-  "password": "SuperAdmin123!"
+  "email": "admin@yourdomain.com",
+  "password": "YourSecurePassword123!"
 }
 ```
 
@@ -29,7 +29,7 @@ Login with email and password to get JWT token.
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
       "_id": "507f1f77bcf86cd799439011",
-      "email": "superadmin@smartclass.com",
+      "email": "admin@yourdomain.com",
       "role": "super_admin",
       "schoolId": null
     }
@@ -73,7 +73,7 @@ Authorization: Bearer <token>
   "data": {
     "user": {
       "_id": "507f1f77bcf86cd799439011",
-      "email": "superadmin@smartclass.com",
+      "email": "admin@yourdomain.com",
       "role": "super_admin",
       "schoolId": null
     }
@@ -103,7 +103,7 @@ Authorization: Bearer <token>
 ```json
 {
   "name": "New School",
-  "location": "123 Education St, City, State"
+  "location": "Your School Address"
 }
 ```
 
@@ -132,8 +132,8 @@ Authorization: Bearer <token>
   "data": [
     {
       "_id": "507f1f77bcf86cd799439011",
-      "name": "SmartClass Academy",
-      "location": "123 Education Street, Tech City, TC 12345"
+      "name": "Your School Name",
+      "location": "Your School Address"
     }
   ]
 }
@@ -187,13 +187,13 @@ Authorization: Bearer <token>
 **Request Body:**
 ```json
 {
-  "name": "John Doe",
+  "name": "Student Name",
   "studentId": "2024001",
   "cardId": "RFID001",
   "majorId": "507f1f77bcf86cd799439012",
   "class": "A",
   "age": 20,
-  "email": "john.doe@student.edu",
+  "email": "student@yourschool.com",
   "phone": "+1234567890"
 }
 ```
@@ -219,8 +219,8 @@ Authorization: Bearer <token>
 **Request Body:**
 ```json
 {
-  "name": "Dr. Sarah Johnson",
-  "email": "sarah.johnson@school.edu",
+  "name": "Dr. Teacher Name",
+  "email": "teacher@yourschool.com",
   "phone": "+1234567890",
   "department": "Computer Science",
   "specialization": "Software Engineering",
@@ -410,12 +410,12 @@ Authorization: Bearer <token>
 ## Testing with Default Credentials
 
 ### Super Admin
-- Email: `superadmin@smartclass.com`
-- Password: `SuperAdmin123!`
+- Email: `admin@yourdomain.com`
+- Password: `YourSecurePassword123!`
 
 ### School Admin
-- Email: `schooladmin@smartclass.com`
-- Password: `SchoolAdmin123!`
+- Email: `schooladmin@yourschool.com`
+- Password: `YourSecurePassword123!`
 
 ## Swagger Documentation
 
