@@ -1,19 +1,12 @@
 const CourseSchedule = require('../models/CourseSchedule');
 const Course = require('../models/Course');
 const Teacher = require('../models/Teacher');
+const Student = require('../models/Student');
 const moment = require('moment');
-const { 
-  successResponse, 
-  errorResponse, 
-  paginatedResponse, 
-  createdResponse, 
-  updatedResponse, 
-  deletedResponse, 
-  notFoundResponse 
-} = require('../utils/response');
+const { sendResponse, sendError, isValidObjectId } = require('../utils/response');
 
 // GET /api/schedules - Get all schedules with pagination and filters
-exports.getAllSchedules = async (req, res, next) => {
+exports.getAllSchedules = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -21,6 +14,22 @@ exports.getAllSchedules = async (req, res, next) => {
     const teacherId = req.query.teacherId || '';
     const classroom = req.query.classroom || '';
     const status = req.query.status || '';
+    const startDate = req.query.startDate ? new Date(req.query.startDate) : null;
+    const endDate = req.query.endDate ? new Date(req.query.endDate) : null;
+    
+    // Validate date formats
+    if (req.query.startDate && isNaN(startDate.getTime())) {
+      return sendError(res, 400, 'Invalid startDate format. Use YYYY-MM-DD');
+    }
+    if (req.query.endDate && isNaN(endDate.getTime())) {
+      return sendError(res, 400, 'Invalid endDate format. Use YYYY-MM-DD');
+    }
+    
+    // Validate date range
+    if (startDate && endDate && startDate > endDate) {
+      return sendError(res, 400, 'startDate cannot be after endDate');
+    }
+    
     const skip = (page - 1) * limit;
 
     // Build query based on user role
@@ -36,6 +45,33 @@ exports.getAllSchedules = async (req, res, next) => {
     if (teacherId) query.teacherId = teacherId;
     if (classroom) query.classroom = { $regex: classroom, $options: 'i' };
     if (status) query.isActive = status === 'active';
+    
+    // Add date filters
+    if (startDate || endDate) {
+      query.$and = [];
+      
+      if (startDate) {
+        query.$and.push({ endDate: { $gte: startDate } });
+      }
+      
+      if (endDate) {
+        query.$and.push({ startDate: { $lte: endDate } });
+      }
+      
+      // If both dates are provided, ensure schedules overlap with the date range
+      if (startDate && endDate) {
+        query.$and.push({
+          $or: [
+            // Schedule starts within the range
+            { startDate: { $gte: startDate, $lte: endDate } },
+            // Schedule ends within the range
+            { endDate: { $gte: startDate, $lte: endDate } },
+            // Schedule spans the entire range
+            { startDate: { $lte: startDate }, endDate: { $gte: endDate } }
+          ]
+        });
+      }
+    }
 
     // Execute query with pagination
     const [schedules, total] = await Promise.all([
@@ -49,14 +85,39 @@ exports.getAllSchedules = async (req, res, next) => {
       CourseSchedule.countDocuments(query)
     ]);
 
-    return paginatedResponse(res, 'Schedules retrieved successfully', schedules, page, limit, total);
+    // Build filter summary for response
+    const filterSummary = [];
+    if (courseId) filterSummary.push(`course: ${courseId}`);
+    if (teacherId) filterSummary.push(`teacher: ${teacherId}`);
+    if (classroom) filterSummary.push(`classroom: ${classroom}`);
+    if (status) filterSummary.push(`status: ${status}`);
+    if (startDate) filterSummary.push(`from: ${startDate.toISOString().split('T')[0]}`);
+    if (endDate) filterSummary.push(`to: ${endDate.toISOString().split('T')[0]}`);
+    
+    const message = filterSummary.length > 0 
+      ? `Schedules retrieved successfully with filters: ${filterSummary.join(', ')}`
+      : 'Schedules retrieved successfully';
+    
+    return sendResponse(res, 200, { 
+      message, 
+      data: schedules, 
+      pagination: { page, limit, total },
+      filters: {
+        courseId,
+        teacherId,
+        classroom,
+        status,
+        startDate: startDate ? startDate.toISOString().split('T')[0] : null,
+        endDate: endDate ? endDate.toISOString().split('T')[0] : null
+      }
+    });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error fetching schedules', error);
   }
 };
 
 // GET /api/schedules/calendar - Get schedules for calendar view
-exports.getCalendarSchedules = async (req, res, next) => {
+exports.getCalendarSchedules = async (req, res) => {
   try {
     const startDate = req.query.startDate ? new Date(req.query.startDate) : moment().startOf('week').toDate();
     const endDate = req.query.endDate ? new Date(req.query.endDate) : moment().endOf('week').toDate();
@@ -107,14 +168,14 @@ exports.getCalendarSchedules = async (req, res, next) => {
       });
     });
 
-    return successResponse(res, 200, 'Calendar schedules retrieved successfully', calendarEvents);
+    return sendResponse(res, 200, { message: 'Calendar schedules retrieved successfully', data: calendarEvents });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error fetching calendar schedules', error);
   }
 };
 
 // GET /api/schedules/:id - Get schedule by ID
-exports.getScheduleById = async (req, res, next) => {
+exports.getScheduleById = async (req, res) => {
   try {
     const schedule = await CourseSchedule.findById(req.params.id)
       .populate('courseId', 'name code description')
@@ -122,17 +183,17 @@ exports.getScheduleById = async (req, res, next) => {
       .populate('attendanceCount');
 
     if (!schedule) {
-      return notFoundResponse(res, 'Schedule not found');
+      return sendError(res, 404, 'Schedule not found');
     }
 
-    return successResponse(res, 200, 'Schedule retrieved successfully', schedule);
+    return sendResponse(res, 200, { message: 'Schedule retrieved successfully', data: schedule });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error fetching schedule', error);
   }
 };
 
 // POST /api/schedules - Create new schedule
-exports.createSchedule = async (req, res, next) => {
+exports.createSchedule = async (req, res) => {
   try {
     const {
       courseId,
@@ -147,21 +208,45 @@ exports.createSchedule = async (req, res, next) => {
     // Verify course exists and belongs to the school
     const course = await Course.findById(courseId);
     if (!course) {
-      return errorResponse(res, 404, 'Course not found');
+      return sendError(res, 404, 'Course not found');
     }
 
     if (req.user.role === 'school_admin' && course.schoolId.toString() !== req.user.schoolId.toString()) {
-      return errorResponse(res, 403, 'Course does not belong to your school');
+      return sendError(res, 403, 'Course does not belong to your school');
     }
 
     // Verify teacher exists and belongs to the school
     const teacher = await Teacher.findById(teacherId);
     if (!teacher) {
-      return errorResponse(res, 404, 'Teacher not found');
+      return sendError(res, 404, 'Teacher not found');
     }
 
     if (req.user.role === 'school_admin' && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
-      return errorResponse(res, 403, 'Teacher does not belong to your school');
+      return sendError(res, 403, 'Teacher does not belong to your school');
+    }
+
+    // Calculate maxStudents automatically based on the number of students in the major
+    let calculatedMaxStudents = maxStudents;
+    if (!calculatedMaxStudents) {
+      try {
+        // Count students enrolled in the major that this course belongs to
+        const studentCount = await Student.countDocuments({
+          majorId: course.majorId,
+          schoolId: course.schoolId,
+          isActive: true
+        });
+        
+        // Set a reasonable limit: either the actual student count or a minimum of 20
+        calculatedMaxStudents = Math.max(studentCount, 20);
+        
+        // Add a buffer for potential new enrollments (20% more)
+        calculatedMaxStudents = Math.ceil(calculatedMaxStudents * 1.2);
+        
+        console.log(`Auto-calculated maxStudents: ${calculatedMaxStudents} (based on ${studentCount} students in major ${course.majorId})`);
+      } catch (error) {
+        console.log('Error calculating maxStudents, using default value:', error.message);
+        calculatedMaxStudents = 30; // Fallback to default
+      }
     }
 
     // Check for time conflicts
@@ -173,12 +258,12 @@ exports.createSchedule = async (req, res, next) => {
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       weeklySessions,
-      maxStudents: maxStudents || 30
+      maxStudents: calculatedMaxStudents
     });
 
     const conflicts = await checkScheduleConflicts(newSchedule);
     if (conflicts.length > 0) {
-      return errorResponse(res, 409, 'Schedule conflicts detected', { conflicts });
+      return sendError(res, 409, 'Schedule conflicts detected', { conflicts });
     }
 
     await newSchedule.save();
@@ -187,16 +272,17 @@ exports.createSchedule = async (req, res, next) => {
       .populate('courseId', 'name code')
       .populate('teacherId', 'name');
 
-    return createdResponse(res, 'Schedule created successfully', populatedSchedule);
+    return sendResponse(res, 201, { message: 'Schedule created successfully', data: populatedSchedule });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error creating schedule', error);
   }
 };
 
 // PUT /api/schedules/:id - Update schedule
-exports.updateSchedule = async (req, res, next) => {
+exports.updateSchedule = async (req, res) => {
   try {
     const {
+      courseId,
       classroom,
       teacherId,
       startDate,
@@ -207,27 +293,33 @@ exports.updateSchedule = async (req, res, next) => {
     } = req.body;
     const scheduleId = req.params.id;
 
+    // check if scheduleId is valid
+    if (!isValidObjectId(scheduleId)) {
+      return sendError(res, 400, 'Invalid schedule ID');
+    }
+
     const schedule = await CourseSchedule.findById(scheduleId);
     if (!schedule) {
-      return notFoundResponse(res, 'Schedule not found');
+      return sendError(res, 404, 'Schedule not found');
     }
 
     // Verify teacher exists and belongs to the school if being changed
     if (teacherId && teacherId !== schedule.teacherId.toString()) {
       const teacher = await Teacher.findById(teacherId);
       if (!teacher) {
-        return errorResponse(res, 404, 'Teacher not found');
+        return sendError(res, 404, 'Teacher not found');
       }
 
       if (req.user.role === 'school_admin' && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
-        return errorResponse(res, 403, 'Teacher does not belong to your school');
+        return sendError(res, 403, 'Teacher does not belong to your school');
       }
     }
 
     // Check for time conflicts if schedule details are being changed
-    if (classroom || teacherId || startDate || endDate || weeklySessions) {
+    if (courseId || classroom || teacherId || startDate || endDate || weeklySessions) {
       const updatedSchedule = {
         ...schedule.toObject(),
+        courseId: courseId || schedule.courseId,
         classroom: classroom || schedule.classroom,
         teacherId: teacherId || schedule.teacherId,
         startDate: startDate ? new Date(startDate) : schedule.startDate,
@@ -237,18 +329,48 @@ exports.updateSchedule = async (req, res, next) => {
 
       const conflicts = await checkScheduleConflicts(updatedSchedule, scheduleId);
       if (conflicts.length > 0) {
-        return errorResponse(res, 409, 'Schedule conflicts detected', { conflicts });
+        return sendError(res, 409, 'Schedule conflicts detected', { conflicts });
       }
     }
 
     // Update fields
+    if (courseId) schedule.courseId = courseId;
     if (classroom) schedule.classroom = classroom;
     if (teacherId) schedule.teacherId = teacherId;
     if (startDate) schedule.startDate = new Date(startDate);
     if (endDate) schedule.endDate = new Date(endDate);
     if (weeklySessions) schedule.weeklySessions = weeklySessions;
-    if (maxStudents) schedule.maxStudents = maxStudents;
     if (isActive !== undefined) schedule.isActive = isActive;
+    
+    // Handle maxStudents update intelligently
+    if (maxStudents !== undefined) {
+      if (maxStudents === 'auto') {
+        // Recalculate maxStudents automatically
+        try {
+          // Use the updated courseId if it was changed, otherwise use the existing one
+          const courseToUse = courseId ? await Course.findById(courseId) : await Course.findById(schedule.courseId);
+          if (courseToUse) {
+            const studentCount = await Student.countDocuments({
+              majorId: courseToUse.majorId,
+              schoolId: courseToUse.schoolId,
+              isActive: true
+            });
+            
+            const calculatedMaxStudents = Math.max(studentCount, 20);
+            const bufferedMaxStudents = Math.ceil(calculatedMaxStudents * 1.2);
+            
+            schedule.maxStudents = bufferedMaxStudents;
+            console.log(`Auto-recalculated maxStudents: ${bufferedMaxStudents} (based on ${studentCount} students in major ${courseToUse.majorId})`);
+          }
+        } catch (error) {
+          console.log('Error recalculating maxStudents:', error.message);
+          // Keep existing value if recalculation fails
+        }
+      } else {
+        // Use the provided value
+        schedule.maxStudents = maxStudents;
+      }
+    }
 
     await schedule.save();
 
@@ -256,37 +378,37 @@ exports.updateSchedule = async (req, res, next) => {
       .populate('courseId', 'name code')
       .populate('teacherId', 'name');
 
-    return updatedResponse(res, 'Schedule updated successfully', updatedSchedule);
+    return sendResponse(res, 200, { message: 'Schedule updated successfully', data: updatedSchedule });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error updating schedule', error);
   }
 };
 
 // DELETE /api/schedules/:id - Delete schedule
-exports.deleteSchedule = async (req, res, next) => {
+exports.deleteSchedule = async (req, res) => {
   try {
     const schedule = await CourseSchedule.findById(req.params.id);
     
     if (!schedule) {
-      return notFoundResponse(res, 'Schedule not found');
+      return sendError(res, 404, 'Schedule not found');
     }
 
     // Check if schedule has attendance records
     const hasAttendance = await require('../models/Attendance').exists({ scheduleId: schedule._id });
     if (hasAttendance) {
-      return errorResponse(res, 400, 'Cannot delete schedule with attendance records. Please deactivate instead.');
+      return sendError(res, 400, 'Cannot delete schedule with attendance records. Please deactivate instead.');
     }
 
     await CourseSchedule.findByIdAndDelete(req.params.id);
 
-    return deletedResponse(res, 'Schedule deleted successfully');
+    return sendResponse(res, 200, { message: 'Schedule deleted successfully' });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error deleting schedule', error);
   }
 };
 
 // POST /api/schedules/check-conflicts - Check for schedule conflicts
-exports.checkConflicts = async (req, res, next) => {
+exports.checkConflicts = async (req, res) => {
   try {
     const { courseId, teacherId, classroom, startDate, endDate, weeklySessions, excludeScheduleId } = req.body;
 
@@ -301,9 +423,9 @@ exports.checkConflicts = async (req, res, next) => {
 
     const conflicts = await checkScheduleConflicts(testSchedule, excludeScheduleId);
 
-    return successResponse(res, 200, 'Conflict check completed', { conflicts });
+    return sendResponse(res, 200, { message: 'Conflict check completed', data: { conflicts } });
   } catch (error) {
-    next(error);
+    sendError(res, 500, 'Error checking schedule conflicts', error);
   }
 };
 
