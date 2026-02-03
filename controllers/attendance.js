@@ -1,9 +1,9 @@
-const Attendance = require('../models/Attendance');
-const Student = require('../models/Student');
-const Device = require('../models/Device');
-const Course = require('../models/Course');
-const CourseSchedule = require('../models/CourseSchedule');
-const { sendResponse, sendError } = require('../utils/response');
+const Attendance = require("../models/Attendance");
+const Student = require("../models/Student");
+const Device = require("../models/Device");
+const Course = require("../models/Course");
+const CourseSchedule = require("../models/CourseSchedule");
+const { sendResponse, sendError } = require("../utils/response");
 
 /**
  * Get all attendance records with pagination and filtering
@@ -13,56 +13,56 @@ const getAllAttendance = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      search = '',
-      schoolId = '',
-      majorId = '',
-      courseId = '',
-      startDate = '',
-      endDate = '',
-      status = ''
+      search = "",
+      schoolId = "",
+      majorId = "",
+      courseId = "",
+      startDate = "",
+      endDate = "",
+      status = "",
     } = req.query;
 
     const skip = (page - 1) * limit;
-    
+
     // Build filter object
     const filter = {};
-    
+
     if (schoolId) {
       filter.schoolId = schoolId;
-    } else if (req.user.role === 'school_admin') {
+    } else if (req.user.role === "school_admin") {
       // School admins can only see attendance from their school
       filter.schoolId = req.user.schoolId;
     }
-    
+
     if (majorId) {
       filter.majorId = majorId;
     }
-    
+
     if (courseId) {
       filter.courseId = courseId;
     }
-    
+
     if (status) {
       filter.status = status;
     }
-    
+
     if (startDate && endDate) {
       filter.date = {
         $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $lte: new Date(endDate),
       };
     }
 
     // Get total count
     const total = await Attendance.countDocuments(filter);
-    
+
     // Get attendance records with pagination
     let attendanceQuery = Attendance.find(filter)
-      .populate('studentId', 'firstName lastName studentId majorId')
-      .populate('courseId', 'name code')
-      .populate('scheduleId', 'classroom weeklySessions')
-      .populate('deviceId', 'name location')
-      .populate('majorId', 'name')
+      .populate("studentId", "firstName lastName studentId majorId")
+      .populate("courseId", "name code")
+      .populate("scheduleId", "classroom weeklySessions")
+      .populate("deviceId", "name location")
+      .populate("majorId", "name")
       .sort({ date: -1, checkInTime: -1 })
       .skip(skip)
       .limit(parseInt(limit));
@@ -72,20 +72,20 @@ const getAllAttendance = async (req, res) => {
       attendanceQuery = Attendance.find({
         ...filter,
         $or: [
-          { 'studentId.firstName': { $regex: search, $options: 'i' } },
-          { 'studentId.lastName': { $regex: search, $options: 'i' } },
-          { 'studentId.studentId': { $regex: search, $options: 'i' } },
-          { 'courseId.name': { $regex: search, $options: 'i' } }
-        ]
+          { "studentId.firstName": { $regex: search, $options: "i" } },
+          { "studentId.lastName": { $regex: search, $options: "i" } },
+          { "studentId.studentId": { $regex: search, $options: "i" } },
+          { "courseId.name": { $regex: search, $options: "i" } },
+        ],
       })
-      .populate('studentId', 'firstName lastName studentId majorId')
-      .populate('courseId', 'name code')
-      .populate('scheduleId', 'classroom weeklySessions')
-      .populate('deviceId', 'name location')
-      .populate('majorId', 'name')
-      .sort({ date: -1, checkInTime: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+        .populate("studentId", "firstName lastName studentId majorId")
+        .populate("courseId", "name code")
+        .populate("scheduleId", "classroom weeklySessions")
+        .populate("deviceId", "name location")
+        .populate("majorId", "name")
+        .sort({ date: -1, checkInTime: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
     }
 
     const attendance = await attendanceQuery;
@@ -97,11 +97,11 @@ const getAllAttendance = async (req, res) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages
-      }
+        pages,
+      },
     });
   } catch (error) {
-    sendError(res, 500, 'Error fetching attendance records', error);
+    sendError(res, 500, "Error fetching attendance records", error);
   }
 };
 
@@ -111,26 +111,29 @@ const getAllAttendance = async (req, res) => {
 const getAttendanceById = async (req, res) => {
   try {
     const { id } = req.params;
-    
+
     const attendance = await Attendance.findById(id)
-      .populate('studentId', 'firstName lastName studentId majorId')
-      .populate('courseId', 'name code')
-      .populate('scheduleId', 'classroom weeklySessions')
-      .populate('deviceId', 'name location')
-      .populate('majorId', 'name');
+      .populate("studentId", "firstName lastName studentId majorId")
+      .populate("courseId", "name code")
+      .populate("scheduleId", "classroom weeklySessions")
+      .populate("deviceId", "name location")
+      .populate("majorId", "name");
 
     if (!attendance) {
-      return sendError(res, 404, 'Attendance record not found');
+      return sendError(res, 404, "Attendance record not found");
     }
 
     // Check if user has permission to view this attendance
-    if (req.user.role === 'school_admin' && req.user.schoolId.toString() !== attendance.schoolId.toString()) {
-      return sendError(res, 403, 'Access denied');
+    if (
+      req.user.role === "school_admin" &&
+      req.user.schoolId.toString() !== attendance.schoolId.toString()
+    ) {
+      return sendError(res, 403, "Access denied");
     }
 
     sendResponse(res, 200, { data: attendance });
   } catch (error) {
-    sendError(res, 500, 'Error fetching attendance record', error);
+    sendError(res, 500, "Error fetching attendance record", error);
   }
 };
 
@@ -148,40 +151,47 @@ const createAttendance = async (req, res) => {
       checkInTime,
       checkOutTime,
       status,
-      notes
+      notes,
     } = req.body;
 
     // Verify student exists
     const student = await Student.findById(studentId);
     if (!student) {
-      return sendError(res, 400, 'Student not found');
+      return sendError(res, 400, "Student not found");
     }
 
     // Verify course exists
     const course = await Course.findById(courseId);
     if (!course) {
-      return sendError(res, 400, 'Course not found');
+      return sendError(res, 400, "Course not found");
     }
 
     // Verify device exists
     const device = await Device.findById(deviceId);
     if (!device) {
-      return sendError(res, 400, 'Device not found');
+      return sendError(res, 400, "Device not found");
     }
 
     // Check if user has permission to create attendance for this school
-    if (req.user.role === 'school_admin' && req.user.schoolId.toString() !== student.schoolId.toString()) {
-      return sendError(res, 403, 'Access denied');
+    if (
+      req.user.role === "school_admin" &&
+      req.user.schoolId.toString() !== student.schoolId.toString()
+    ) {
+      return sendError(res, 403, "Access denied");
     }
 
     // Check if attendance already exists for this student on this date
     const existingAttendance = await Attendance.findOne({
       studentId,
-      date: new Date(date)
+      date: new Date(date),
     });
 
     if (existingAttendance) {
-      return sendError(res, 400, 'Attendance record already exists for this student on this date');
+      return sendError(
+        res,
+        400,
+        "Attendance record already exists for this student on this date",
+      );
     }
 
     // Create attendance record
@@ -195,25 +205,25 @@ const createAttendance = async (req, res) => {
       date: new Date(date),
       checkInTime: checkInTime ? new Date(checkInTime) : new Date(),
       checkOutTime: checkOutTime ? new Date(checkOutTime) : null,
-      status: status || 'present',
-      notes
+      status: status || "present",
+      notes,
     });
 
     await attendance.save();
 
     const populatedAttendance = await Attendance.findById(attendance._id)
-      .populate('studentId', 'firstName lastName studentId majorId')
-      .populate('courseId', 'name code')
-      .populate('scheduleId', 'classroom weeklySessions')
-      .populate('deviceId', 'name location')
-      .populate('majorId', 'name');
+      .populate("studentId", "firstName lastName studentId majorId")
+      .populate("courseId", "name code")
+      .populate("scheduleId", "classroom weeklySessions")
+      .populate("deviceId", "name location")
+      .populate("majorId", "name");
 
-    sendResponse(res, 201, { 
+    sendResponse(res, 201, {
       data: populatedAttendance,
-      message: 'Attendance record created successfully'
+      message: "Attendance record created successfully",
     });
   } catch (error) {
-    sendError(res, 500, 'Error creating attendance record', error);
+    sendError(res, 500, "Error creating attendance record", error);
   }
 };
 
@@ -227,32 +237,35 @@ const updateAttendance = async (req, res) => {
 
     const attendance = await Attendance.findById(id);
     if (!attendance) {
-      return sendError(res, 404, 'Attendance record not found');
+      return sendError(res, 404, "Attendance record not found");
     }
 
     // Check if user has permission to update this attendance
-    if (req.user.role === 'school_admin' && req.user.schoolId.toString() !== attendance.schoolId.toString()) {
-      return sendError(res, 403, 'Access denied');
+    if (
+      req.user.role === "school_admin" &&
+      req.user.schoolId.toString() !== attendance.schoolId.toString()
+    ) {
+      return sendError(res, 403, "Access denied");
     }
 
     // Update attendance
     const updatedAttendance = await Attendance.findByIdAndUpdate(
       id,
       updateData,
-      { new: true, runValidators: true }
+      { new: true, runValidators: true },
     )
-    .populate('studentId', 'firstName lastName studentId majorId')
-    .populate('courseId', 'name code')
-    .populate('scheduleId', 'classroom weeklySessions')
-    .populate('deviceId', 'name location')
-    .populate('majorId', 'name');
+      .populate("studentId", "firstName lastName studentId majorId")
+      .populate("courseId", "name code")
+      .populate("scheduleId", "classroom weeklySessions")
+      .populate("deviceId", "name location")
+      .populate("majorId", "name");
 
-    sendResponse(res, 200, { 
+    sendResponse(res, 200, {
       data: updatedAttendance,
-      message: 'Attendance record updated successfully'
+      message: "Attendance record updated successfully",
     });
   } catch (error) {
-    sendError(res, 500, 'Error updating attendance record', error);
+    sendError(res, 500, "Error updating attendance record", error);
   }
 };
 
@@ -265,21 +278,24 @@ const deleteAttendance = async (req, res) => {
 
     const attendance = await Attendance.findById(id);
     if (!attendance) {
-      return sendError(res, 404, 'Attendance record not found');
+      return sendError(res, 404, "Attendance record not found");
     }
 
     // Check if user has permission to delete this attendance
-    if (req.user.role === 'school_admin' && req.user.schoolId.toString() !== attendance.schoolId.toString()) {
-      return sendError(res, 403, 'Access denied');
+    if (
+      req.user.role === "school_admin" &&
+      req.user.schoolId.toString() !== attendance.schoolId.toString()
+    ) {
+      return sendError(res, 403, "Access denied");
     }
 
     await Attendance.findByIdAndDelete(id);
 
-    sendResponse(res, 200, { 
-      message: 'Attendance record deleted successfully'
+    sendResponse(res, 200, {
+      message: "Attendance record deleted successfully",
     });
   } catch (error) {
-    sendError(res, 500, 'Error deleting attendance record', error);
+    sendError(res, 500, "Error deleting attendance record", error);
   }
 };
 
@@ -288,37 +304,37 @@ const deleteAttendance = async (req, res) => {
  */
 const processCheckIn = async (req, res) => {
   try {
-    const { deviceId, cardId, courseId } = req.body;
+    const { deviceId, cardId } = req.body;
 
     if (!deviceId || !cardId) {
-      return sendError(res, 400, 'Device ID and Card ID are required');
+      return sendError(res, 400, "Device ID and Card ID are required");
     }
 
     // Find device
     const device = await Device.findById(deviceId);
     if (!device) {
-      return sendError(res, 404, 'Device not found');
+      return sendError(res, 404, "Device not found");
     }
 
     if (!device.isActive) {
-      return sendError(res, 400, 'Device is not active');
+      return sendError(res, 400, "Device is not active");
     }
 
     // Find student by card ID
-    const student = await Student.findOne({ 
+    const student = await Student.findOne({
       rfidCardId: cardId,
       schoolId: device.schoolId,
-      isActive: true
+      isActive: true,
     });
 
     if (!student) {
-      return sendError(res, 400, 'Invalid card or student not found');
+      return sendError(res, 400, "Invalid card or student not found");
     }
 
     // Check if student is already checked in today
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -326,25 +342,32 @@ const processCheckIn = async (req, res) => {
       studentId: student._id,
       date: {
         $gte: today,
-        $lt: tomorrow
-      }
+        $lt: tomorrow,
+      },
     });
 
     if (existingAttendance) {
-      return sendError(res, 400, 'Student already checked in today');
+      return sendError(res, 400, "Student already checked in today");
     }
 
-    // Find current course schedule if courseId is provided
+    // Find current course schedule 
     let scheduleId = null;
-    if (courseId) {
-      const schedule = await CourseSchedule.findOne({
-        courseId,
-        startDate: { $lte: new Date() },
-        endDate: { $gte: new Date() }
-      });
-      if (schedule) {
-        scheduleId = schedule._id;
-      }
+    device.classroom;
+
+    const now = new Date();
+    const oneHourFromNow = new Date(now.getTime() + 60 * 60 * 1000);
+
+    const schedule = await CourseSchedule.findOne({
+      classroom: device.classroom,
+      startDate: {
+        $gt: now,
+        $lte: oneHourFromNow,
+      },
+      endDate: { $gte: now },
+    });
+
+    if (schedule) {
+      scheduleId = schedule._id;
     }
 
     // Create attendance record
@@ -357,7 +380,7 @@ const processCheckIn = async (req, res) => {
       majorId: student.majorId,
       date: new Date(),
       checkInTime: new Date(),
-      status: 'present'
+      status: "present",
     });
 
     await attendance.save();
@@ -367,18 +390,18 @@ const processCheckIn = async (req, res) => {
     await device.save();
 
     const populatedAttendance = await Attendance.findById(attendance._id)
-      .populate('studentId', 'firstName lastName studentId majorId')
-      .populate('courseId', 'name code')
-      .populate('scheduleId', 'classroom weeklySessions')
-      .populate('deviceId', 'name location')
-      .populate('majorId', 'name');
+      .populate("studentId", "firstName lastName studentId majorId")
+      .populate("courseId", "name code")
+      .populate("scheduleId", "classroom weeklySessions")
+      .populate("deviceId", "name location")
+      .populate("majorId", "name");
 
-    sendResponse(res, 200, { 
+    sendResponse(res, 200, {
       data: populatedAttendance,
-      message: 'Check-in successful'
+      message: "Check-in successful",
     });
   } catch (error) {
-    sendError(res, 500, 'Error processing check-in', error);
+    sendError(res, 500, "Error processing check-in", error);
   }
 };
 
@@ -387,60 +410,61 @@ const processCheckIn = async (req, res) => {
  */
 const getAttendanceStats = async (req, res) => {
   try {
-    const { 
-      schoolId, 
-      majorId, 
-      courseId, 
-      startDate, 
-      endDate 
-    } = req.query;
+    const { schoolId, majorId, courseId, startDate, endDate } = req.query;
 
     // Build filter
     const filter = {};
     if (schoolId) {
       filter.schoolId = schoolId;
-    } else if (req.user.role === 'school_admin') {
+    } else if (req.user.role === "school_admin") {
       filter.schoolId = req.user.schoolId;
     }
-    
+
     if (majorId) {
       filter.majorId = majorId;
     }
-    
+
     if (courseId) {
       filter.courseId = courseId;
     }
-    
+
     if (startDate && endDate) {
       filter.date = {
         $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $lte: new Date(endDate),
       };
     }
 
     // Get attendance data
     const attendanceData = await Attendance.find(filter)
-      .populate('studentId', 'firstName lastName studentId')
-      .populate('majorId', 'name');
+      .populate("studentId", "firstName lastName studentId")
+      .populate("majorId", "name");
 
     // Calculate statistics
     const totalRecords = attendanceData.length;
-    const presentCount = attendanceData.filter(record => record.status === 'present').length;
-    const absentCount = attendanceData.filter(record => record.status === 'absent').length;
-    const lateCount = attendanceData.filter(record => record.status === 'late').length;
-    
-    const attendanceRate = totalRecords > 0 ? (presentCount / totalRecords) * 100 : 0;
+    const presentCount = attendanceData.filter(
+      (record) => record.status === "present",
+    ).length;
+    const absentCount = attendanceData.filter(
+      (record) => record.status === "absent",
+    ).length;
+    const lateCount = attendanceData.filter(
+      (record) => record.status === "late",
+    ).length;
+
+    const attendanceRate =
+      totalRecords > 0 ? (presentCount / totalRecords) * 100 : 0;
 
     // Group by major
     const attendanceByMajor = {};
-    attendanceData.forEach(record => {
-      const majorName = record.majorId?.name || 'Unknown';
+    attendanceData.forEach((record) => {
+      const majorName = record.majorId?.name || "Unknown";
       if (!attendanceByMajor[majorName]) {
         attendanceByMajor[majorName] = {
           total: 0,
           present: 0,
           absent: 0,
-          late: 0
+          late: 0,
         };
       }
       attendanceByMajor[majorName].total++;
@@ -448,11 +472,16 @@ const getAttendanceStats = async (req, res) => {
     });
 
     // Convert to array and calculate rates
-    const majorStats = Object.entries(attendanceByMajor).map(([major, stats]) => ({
-      major,
-      ...stats,
-      rate: stats.total > 0 ? Math.round((stats.present / stats.total) * 10000) / 100 : 0
-    }));
+    const majorStats = Object.entries(attendanceByMajor).map(
+      ([major, stats]) => ({
+        major,
+        ...stats,
+        rate:
+          stats.total > 0
+            ? Math.round((stats.present / stats.total) * 10000) / 100
+            : 0,
+      }),
+    );
 
     sendResponse(res, 200, {
       data: {
@@ -461,13 +490,13 @@ const getAttendanceStats = async (req, res) => {
           presentCount,
           absentCount,
           lateCount,
-          attendanceRate: Math.round(attendanceRate * 100) / 100
+          attendanceRate: Math.round(attendanceRate * 100) / 100,
         },
-        byMajor: majorStats
-      }
+        byMajor: majorStats,
+      },
     });
   } catch (error) {
-    sendError(res, 500, 'Error fetching attendance statistics', error);
+    sendError(res, 500, "Error fetching attendance statistics", error);
   }
 };
 
@@ -476,67 +505,74 @@ const getAttendanceStats = async (req, res) => {
  */
 const generateReport = async (req, res) => {
   try {
-    const { 
-      schoolId, 
-      majorId, 
-      courseId, 
-      startDate, 
-      endDate, 
-      format = 'json' 
+    const {
+      schoolId,
+      majorId,
+      courseId,
+      startDate,
+      endDate,
+      format = "json",
     } = req.query;
 
     // Build filter
     const filter = {};
     if (schoolId) {
       filter.schoolId = schoolId;
-    } else if (req.user.role === 'school_admin') {
+    } else if (req.user.role === "school_admin") {
       filter.schoolId = req.user.schoolId;
     }
-    
+
     if (majorId) {
       filter.majorId = majorId;
     }
-    
+
     if (courseId) {
       filter.courseId = courseId;
     }
-    
+
     if (startDate && endDate) {
       filter.date = {
         $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $lte: new Date(endDate),
       };
     }
 
     // Get attendance data
     const attendanceData = await Attendance.find(filter)
-      .populate('studentId', 'firstName lastName studentId')
-      .populate('courseId', 'name code')
-      .populate('majorId', 'name')
-      .populate('deviceId', 'name location')
+      .populate("studentId", "firstName lastName studentId")
+      .populate("courseId", "name code")
+      .populate("majorId", "name")
+      .populate("deviceId", "name location")
       .sort({ date: -1 });
 
     // Calculate summary
     const totalRecords = attendanceData.length;
-    const presentCount = attendanceData.filter(record => record.status === 'present').length;
-    const absentCount = attendanceData.filter(record => record.status === 'absent').length;
-    const lateCount = attendanceData.filter(record => record.status === 'late').length;
-    const attendanceRate = totalRecords > 0 ? (presentCount / totalRecords) * 100 : 0;
+    const presentCount = attendanceData.filter(
+      (record) => record.status === "present",
+    ).length;
+    const absentCount = attendanceData.filter(
+      (record) => record.status === "absent",
+    ).length;
+    const lateCount = attendanceData.filter(
+      (record) => record.status === "late",
+    ).length;
+    const attendanceRate =
+      totalRecords > 0 ? (presentCount / totalRecords) * 100 : 0;
 
     // Format report data
-    const reportData = attendanceData.map(record => ({
-      date: record.date.toISOString().split('T')[0],
+    const reportData = attendanceData.map((record) => ({
+      date: record.date.toISOString().split("T")[0],
       studentName: `${record.studentId.firstName} ${record.studentId.lastName}`,
       studentId: record.studentId.studentId,
-      course: record.courseId?.name || 'N/A',
-      courseCode: record.courseId?.code || 'N/A',
-      major: record.majorId?.name || 'N/A',
-      device: record.deviceId?.name || 'N/A',
-      location: record.deviceId?.location || 'N/A',
+      course: record.courseId?.name || "N/A",
+      courseCode: record.courseId?.code || "N/A",
+      major: record.majorId?.name || "N/A",
+      device: record.deviceId?.name || "N/A",
+      location: record.deviceId?.location || "N/A",
       checkInTime: record.checkInTime,
       checkOutTime: record.checkOutTime,
       status: record.status,
-      notes: record.notes
+      notes: record.notes,
     }));
 
     const summary = {
@@ -546,19 +582,19 @@ const generateReport = async (req, res) => {
       lateCount,
       attendanceRate: Math.round(attendanceRate * 100) / 100,
       dateRange: {
-        start: startDate || 'All time',
-        end: endDate || 'All time'
-      }
+        start: startDate || "All time",
+        end: endDate || "All time",
+      },
     };
 
     sendResponse(res, 200, {
       data: {
         summary,
-        records: reportData
-      }
+        records: reportData,
+      },
     });
   } catch (error) {
-    sendError(res, 500, 'Error generating attendance report', error);
+    sendError(res, 500, "Error generating attendance report", error);
   }
 };
 
@@ -570,7 +606,7 @@ const bulkUpdateAttendance = async (req, res) => {
     const { attendanceRecords } = req.body;
 
     if (!Array.isArray(attendanceRecords) || attendanceRecords.length === 0) {
-      return sendError(res, 400, 'Attendance records array is required');
+      return sendError(res, 400, "Attendance records array is required");
     }
 
     const results = [];
@@ -582,13 +618,16 @@ const bulkUpdateAttendance = async (req, res) => {
 
         const attendance = await Attendance.findById(id);
         if (!attendance) {
-          errors.push({ id, error: 'Attendance record not found' });
+          errors.push({ id, error: "Attendance record not found" });
           continue;
         }
 
         // Check permissions
-        if (req.user.role === 'school_admin' && req.user.schoolId.toString() !== attendance.schoolId.toString()) {
-          errors.push({ id, error: 'Access denied' });
+        if (
+          req.user.role === "school_admin" &&
+          req.user.schoolId.toString() !== attendance.schoolId.toString()
+        ) {
+          errors.push({ id, error: "Access denied" });
           continue;
         }
 
@@ -596,7 +635,7 @@ const bulkUpdateAttendance = async (req, res) => {
         const updatedAttendance = await Attendance.findByIdAndUpdate(
           id,
           { status, notes },
-          { new: true }
+          { new: true },
         );
 
         results.push(updatedAttendance);
@@ -610,12 +649,12 @@ const bulkUpdateAttendance = async (req, res) => {
         updated: results.length,
         errors: errors.length,
         results,
-        errors
+        errors,
       },
-      message: `Bulk update completed. ${results.length} records updated, ${errors.length} errors.`
+      message: `Bulk update completed. ${results.length} records updated, ${errors.length} errors.`,
     });
   } catch (error) {
-    sendError(res, 500, 'Error performing bulk update', error);
+    sendError(res, 500, "Error performing bulk update", error);
   }
 };
 
@@ -627,42 +666,42 @@ const getSchoolAttendance = async (req, res) => {
     const {
       page = 1,
       limit = 10,
-      search = '',
-      majorId = '',
-      courseId = '',
-      status = '',
-      startDate = '',
-      endDate = '',
-      classroom = '',
-      deviceId = ''
+      search = "",
+      majorId = "",
+      courseId = "",
+      status = "",
+      startDate = "",
+      endDate = "",
+      classroom = "",
+      deviceId = "",
     } = req.query;
 
     const skip = (page - 1) * limit;
-    
+
     // Build filter object - school admins can only see attendance from their school
     const filter = {};
-    
+
     if (majorId) {
       filter.majorId = majorId;
     }
-    
+
     if (courseId) {
       filter.courseId = courseId;
     }
-    
+
     if (status) {
       filter.status = status;
     }
-    
+
     if (startDate && endDate) {
       filter.sessionDate = {
         $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $lte: new Date(endDate),
       };
     }
 
     if (classroom) {
-      filter.classroom = { $regex: classroom, $options: 'i' };
+      filter.classroom = { $regex: classroom, $options: "i" };
     }
 
     if (deviceId) {
@@ -675,106 +714,110 @@ const getSchoolAttendance = async (req, res) => {
       // First, get students from the school
       {
         $lookup: {
-          from: 'students',
-          localField: 'studentId',
-          foreignField: '_id',
-          as: 'student'
-        }
+          from: "students",
+          localField: "studentId",
+          foreignField: "_id",
+          as: "student",
+        },
       },
       {
-        $unwind: '$student'
+        $unwind: "$student",
       },
       // Filter by school ID from the student
       {
         $match: {
-          'student.schoolId': req.user.schoolId
-        }
+          "student.schoolId": req.user.schoolId,
+        },
       },
       // Apply other filters
       {
-        $match: filter
+        $match: filter,
       },
       // Lookup course information
       {
         $lookup: {
-          from: 'courses',
-          localField: 'courseId',
-          foreignField: '_id',
-          as: 'course'
-        }
+          from: "courses",
+          localField: "courseId",
+          foreignField: "_id",
+          as: "course",
+        },
       },
       {
-        $unwind: '$course'
+        $unwind: "$course",
       },
       // Lookup schedule information
       {
         $lookup: {
-          from: 'courseschedules',
-          localField: 'scheduleId',
-          foreignField: '_id',
-          as: 'schedule'
-        }
+          from: "courseschedules",
+          localField: "scheduleId",
+          foreignField: "_id",
+          as: "schedule",
+        },
       },
       {
-        $unwind: '$schedule'
+        $unwind: "$schedule",
       },
       // Lookup major information
       {
         $lookup: {
-          from: 'majors',
-          localField: 'student.majorId',
-          foreignField: '_id',
-          as: 'major'
-        }
+          from: "majors",
+          localField: "student.majorId",
+          foreignField: "_id",
+          as: "major",
+        },
       },
       {
-        $unwind: '$major'
+        $unwind: "$major",
       },
       // Add search functionality
-      ...(search ? [{
-        $match: {
-          $or: [
-            { 'student.firstName': { $regex: search, $options: 'i' } },
-            { 'student.lastName': { $regex: search, $options: 'i' } },
-            { 'student.studentId': { $regex: search, $options: 'i' } },
-            { 'course.name': { $regex: search, $options: 'i' } }
+      ...(search
+        ? [
+            {
+              $match: {
+                $or: [
+                  { "student.firstName": { $regex: search, $options: "i" } },
+                  { "student.lastName": { $regex: search, $options: "i" } },
+                  { "student.studentId": { $regex: search, $options: "i" } },
+                  { "course.name": { $regex: search, $options: "i" } },
+                ],
+              },
+            },
           ]
-        }
-      }] : []),
+        : []),
       // Sort by session date and check-in time
       {
         $sort: {
           sessionDate: -1,
-          checkInTime: -1
-        }
+          checkInTime: -1,
+        },
       },
       // Skip and limit for pagination
       {
-        $skip: skip
+        $skip: skip,
       },
       {
-        $limit: parseInt(limit)
+        $limit: parseInt(limit),
       },
       // Project the final structure
       {
         $project: {
           _id: 1,
           studentId: {
-            _id: '$student._id',
-            firstName: '$student.firstName',
-            lastName: '$student.lastName',
-            studentId: '$student.studentId',
-            majorId: '$student.majorId'
+            _id: "$student._id",
+            firstName: "$student.firstName",
+            lastName: "$student.lastName",
+            studentId: "$student.studentId",
+            majorId: "$student.majorId",
           },
           courseId: {
-            _id: '$course._id',
-            name: '$course.name',
-            code: '$course.code'
+            _id: "$course._id",
+            name: "$course.name",
+            code: "$course.code",
           },
           scheduleId: {
-            _id: '$schedule._id',
-            classroom: '$schedule.classroom',
-            weeklySessions: '$schedule.weeklySessions'
+            _id: "$schedule._id",
+            classroom: "$schedule.classroom",
+            weeklySessions: "$schedule.weeklySessions",
           },
           deviceId: 1,
           classroom: 1,
@@ -788,19 +831,19 @@ const getSchoolAttendance = async (req, res) => {
           cardId: 1,
           deviceLocation: 1,
           createdAt: 1,
-          updatedAt: 1
-        }
-      }
+          updatedAt: 1,
+        },
+      },
     ];
 
     // Get total count using a similar pipeline but without skip/limit
     const countPipeline = [
-      ...pipeline.slice(0, -2) // Remove skip and limit
+      ...pipeline.slice(0, -2), // Remove skip and limit
     ];
-    
+
     const [attendance, totalResult] = await Promise.all([
       Attendance.aggregate(pipeline),
-      Attendance.aggregate([...countPipeline, { $count: 'total' }])
+      Attendance.aggregate([...countPipeline, { $count: "total" }]),
     ]);
 
     const total = totalResult.length > 0 ? totalResult[0].total : 0;
@@ -812,12 +855,12 @@ const getSchoolAttendance = async (req, res) => {
         page: parseInt(page),
         limit: parseInt(limit),
         total,
-        pages
-      }
+        pages,
+      },
     });
   } catch (error) {
     console.log("Error fetching school attendance", error);
-    return sendError(res, 500, 'Error fetching school attendance', error);
+    return sendError(res, 500, "Error fetching school attendance", error);
   }
 };
 
@@ -831,5 +874,5 @@ module.exports = {
   getAttendanceStats,
   generateReport,
   bulkUpdateAttendance,
-  getSchoolAttendance
-}; 
+  getSchoolAttendance,
+};

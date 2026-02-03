@@ -148,8 +148,6 @@ router.get('/:id', authenticateToken, authorizeResourceAccess(Attendance), atten
  *   post:
  *     summary: RFID check-in for attendance
  *     tags: [Attendance]
- *     security:
- *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -169,10 +167,6 @@ router.get('/:id', authenticateToken, authorizeResourceAccess(Attendance), atten
  *                 type: string
  *                 description: Device ID that processed the check-in
  *                 example: "DEVICE001"
- *               classroom:
- *                 type: string
- *                 description: Classroom where check-in occurred
- *                 example: "Room 101"
  *     responses:
  *       200:
  *         description: Check-in processed successfully
@@ -201,12 +195,9 @@ router.get('/:id', authenticateToken, authorizeResourceAccess(Attendance), atten
  *         description: Internal server error
  */
 router.post('/check-in', 
-  authenticateToken, 
   [
     body('cardId').notEmpty().withMessage('Card ID is required'),
-    body('deviceId').notEmpty().withMessage('Device ID is required'),
-    body('classroom').notEmpty().withMessage('Classroom is required')
-      .isLength({ max: 50 }).withMessage('Classroom cannot exceed 50 characters')
+    body('deviceId').notEmpty().withMessage('Device ID is required')
   ],
   validateRequest,
   attendanceController.processCheckIn

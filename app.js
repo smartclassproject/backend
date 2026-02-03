@@ -33,30 +33,42 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
+
+    // Dev shortcut: allow all origins when explicitly enabled (use only for local debugging)
+    if (process.env.ALLOW_ALL_ORIGINS === 'true') {
+      console.warn('CORS: allowing all origins because ALLOW_ALL_ORIGINS=true');
+      return callback(null, true);
+    }
+
+    // Default allowed origins for development
+    const allowedOrigins = new Set([
       'http://localhost:5173',
+      'http://127.0.0.1:5173',
       'http://localhost:3000',
-      'http://localhost:8080'
-    ];
-    
-    // Add production frontend URLs from environment variables
-    if (process.env.FRONTEND_URL) {
-      allowedOrigins.push(process.env.FRONTEND_URL);
+      'http://127.0.0.1:3000',
+      'http://localhost:8080',
+    ]);
+
+    // Add production frontend URLs from environment variables (comma-separated list supported)
+    const envFrontendUrls = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+    envFrontendUrls.forEach(u => allowedOrigins.add(u));
+
+    // Support simple domain patterns from env var FRONTEND_URL_PATTERNS (comma-separated), e.g. ".example.com" or "example.com"
+    const frontendPatterns = (process.env.FRONTEND_URL_PATTERNS || '').split(',').map(s => s.trim()).filter(Boolean);
+
+    const originAllowedDirect = allowedOrigins.has(origin);
+    const originAllowedByPattern = frontendPatterns.some(p => {
+      if (!p) return false;
+      // Allow entries like ".example.com" or "example.com" to match any subdomain
+      return origin.endsWith(p);
+    });
+
+    if (originAllowedDirect || originAllowedByPattern) {
+      return callback(null, true);
     }
-    
-    // Add additional production domains if needed
-    if (process.env.ADDITIONAL_FRONTEND_URLS) {
-      const additionalUrls = process.env.ADDITIONAL_FRONTEND_URLS.split(',');
-      allowedOrigins.push(...additionalUrls);
-    }
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
-    }
+
+    console.warn('CORS blocked origin:', origin, 'Allowed:', Array.from(allowedOrigins).join(','), 'Patterns:', frontendPatterns.join(','));
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   optionsSuccessStatus: 200
@@ -96,7 +108,7 @@ app.use('/api/schools', authenticateToken, schoolRoutes);
 app.use('/api/admins', authenticateToken, adminRoutes);
 app.use('/api/courses', authenticateToken, courseRoutes);
 app.use('/api/schedules', authenticateToken, scheduleRoutes);
-app.use('/api/attendance', authenticateToken, attendanceRoutes);
+app.use('/api/attendance', attendanceRoutes); // NOTE: some attendance endpoints (e.g., /check-in) are intentionally public; route-level auth is applied where needed
 app.use('/api/devices', authenticateToken, deviceRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 
