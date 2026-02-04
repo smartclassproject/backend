@@ -57,15 +57,7 @@ const getAllAttendance = async (req, res) => {
     const total = await Attendance.countDocuments(filter);
 
     // Get attendance records with pagination
-    let attendanceQuery = Attendance.find(filter)
-      .populate("studentId", "firstName lastName studentId majorId")
-      .populate("courseId", "name code")
-      .populate("scheduleId", "classroom weeklySessions")
-      .populate("deviceId", "name location")
-      .populate("majorId", "name")
-      .sort({ date: -1, checkInTime: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    let attendanceQuery;
 
     // Add search functionality
     if (search) {
@@ -78,7 +70,17 @@ const getAllAttendance = async (req, res) => {
           { "courseId.name": { $regex: search, $options: "i" } },
         ],
       })
-        .populate("studentId", "firstName lastName studentId majorId")
+        .populate("studentId", "name studentId majorId")
+        .populate("courseId", "name code")
+        .populate("scheduleId", "classroom weeklySessions")
+        .populate("deviceId", "name location")
+        .populate("majorId", "name")
+        .sort({ date: -1, checkInTime: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+    } else {
+      attendanceQuery = Attendance.find(filter)
+        .populate("studentId", "name studentId majorId")
         .populate("courseId", "name code")
         .populate("scheduleId", "classroom weeklySessions")
         .populate("deviceId", "name location")
@@ -209,7 +211,9 @@ const createAttendance = async (req, res) => {
       sessionDate: sessionDate,
       checkInTime: checkInTime ? new Date(checkInTime) : new Date(),
       checkOutTime: checkOutTime ? new Date(checkOutTime) : null,
-      status: status ? (status.charAt(0).toUpperCase() + status.slice(1)) : undefined,
+      status: status
+        ? status.charAt(0).toUpperCase() + status.slice(1)
+        : undefined,
       notes,
     });
 
@@ -315,7 +319,7 @@ const processCheckIn = async (req, res) => {
     }
 
     // Find device
-    const device = await Device.findOne({serialNumber: deviceId});
+    const device = await Device.findOne({ serialNumber: deviceId });
     if (!device) {
       return sendError(res, 404, "Device not found");
     }
@@ -354,7 +358,7 @@ const processCheckIn = async (req, res) => {
       return sendError(res, 400, "Student already checked in today");
     }
 
-    // Find current course schedule 
+    // Find current course schedule
     let scheduleId = null;
     let courseId = 0;
     device.classroom;
@@ -393,7 +397,8 @@ const processCheckIn = async (req, res) => {
       attendancePayload.scheduleId = schedule._id;
       attendancePayload.courseId = schedule.courseId;
       // if the schedule has start/end times, set them
-      if (schedule.startTime) attendancePayload.sessionStartTime = schedule.startTime;
+      if (schedule.startTime)
+        attendancePayload.sessionStartTime = schedule.startTime;
       if (schedule.endTime) attendancePayload.sessionEndTime = schedule.endTime;
     }
 
