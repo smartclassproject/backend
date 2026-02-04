@@ -180,10 +180,13 @@ const createAttendance = async (req, res) => {
       return sendError(res, 403, "Access denied");
     }
 
+    // Normalize session date
+    const sessionDate = date ? new Date(date) : new Date();
+
     // Check if attendance already exists for this student on this date
     const existingAttendance = await Attendance.findOne({
       studentId,
-      date: new Date(date),
+      sessionDate: sessionDate,
     });
 
     if (existingAttendance) {
@@ -194,7 +197,7 @@ const createAttendance = async (req, res) => {
       );
     }
 
-    // Create attendance record
+    // Create attendance record (store both `date` for compatibility and `sessionDate`)
     const attendance = new Attendance({
       studentId,
       courseId,
@@ -202,10 +205,11 @@ const createAttendance = async (req, res) => {
       deviceId,
       schoolId: student.schoolId,
       majorId: student.majorId,
-      date: new Date(date),
+      date: sessionDate,
+      sessionDate: sessionDate,
       checkInTime: checkInTime ? new Date(checkInTime) : new Date(),
       checkOutTime: checkOutTime ? new Date(checkOutTime) : null,
-      status: status || "present",
+      status: status ? (status.charAt(0).toUpperCase() + status.slice(1)) : undefined,
       notes,
     });
 
@@ -331,7 +335,7 @@ const processCheckIn = async (req, res) => {
       return sendError(res, 400, "Invalid card or student not found");
     }
 
-    // Check if student is already checked in today
+    // Check if student is already checked in today (use sessionDate)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -340,7 +344,7 @@ const processCheckIn = async (req, res) => {
 
     const existingAttendance = await Attendance.findOne({
       studentId: student._id,
-      date: {
+      sessionDate: {
         $gte: today,
         $lt: tomorrow,
       },
@@ -372,18 +376,28 @@ const processCheckIn = async (req, res) => {
       courseId = schedule.courseId;
     }
 
-    // Create attendance record
-    const attendance = new Attendance({
+    // Create attendance record - include device info and classroom; course/schedule only if found
+    const attendancePayload = {
       studentId: student._id,
-      courseId: courseId || null,
-      scheduleId,
-      deviceId: device._id,
       schoolId: device.schoolId,
       majorId: student.majorId,
-      date: new Date(),
+      deviceId: device._id,
+      classroom: device.classroom,
+      date: new Date(), // kept for backward compatibility
       checkInTime: new Date(),
-      status: "present",
-    });
+      cardId: cardId,
+      deviceLocation: device.location,
+    };
+
+    if (schedule) {
+      attendancePayload.scheduleId = schedule._id;
+      attendancePayload.courseId = schedule.courseId;
+      // if the schedule has start/end times, set them
+      if (schedule.startTime) attendancePayload.sessionStartTime = schedule.startTime;
+      if (schedule.endTime) attendancePayload.sessionEndTime = schedule.endTime;
+    }
+
+    const attendance = new Attendance(attendancePayload);
 
     await attendance.save();
 

@@ -8,12 +8,10 @@ const mongoose = require('mongoose');
  *       type: object
  *       required:
  *         - studentId
- *         - courseId
- *         - scheduleId
  *         - deviceId
- *         - classroom
  *         - checkInTime
  *         - status
+ *       description: For device check-ins, courseId/scheduleId/classroom/sessionDate may be omitted and will be inferred where possible by the system.
  *       properties:
  *         _id:
  *           type: string
@@ -65,26 +63,39 @@ const attendanceSchema = new mongoose.Schema({
     ref: 'Student',
     required: [true, 'Student ID is required']
   },
+  schoolId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'School',
+    index: true,
+    // populated for multi-tenant filtering by school
+  },
+  majorId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Major',
+    index: true,
+  },
   courseId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Course',
-    required: [true, 'Course ID is required']
+    // optional for device-based quick check-ins where schedule/course may not be known
   },
   scheduleId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CourseSchedule',
-    required: [true, 'Schedule ID is required']
+    // optional for device-based quick check-ins
   },
   deviceId: {
-    type: String,
-    required: [true, 'Device ID is required'],
-    trim: true
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Device',
+    required: [true, 'Device ID is required']
   },
   classroom: {
     type: String,
-    required: [true, 'Classroom is required'],
     trim: true,
     maxlength: [50, 'Classroom cannot exceed 50 characters']
+  },
+  date: { // alias used by some controllers - represents the raw check-in date
+    type: Date
   },
   checkInTime: {
     type: Date,
@@ -94,7 +105,6 @@ const attendanceSchema = new mongoose.Schema({
   status: {
     type: String,
     enum: ['Present', 'Absent', 'Late'],
-    required: [true, 'Status is required'],
     default: 'Present'
   },
   notes: {
@@ -105,7 +115,7 @@ const attendanceSchema = new mongoose.Schema({
   // Additional fields for better tracking
   sessionDate: {
     type: Date,
-    required: [true, 'Session date is required']
+    // optional; pre-save will derive from `date` or `checkInTime` if not provided
   },
   sessionDay: {
     type: String,
@@ -172,17 +182,18 @@ attendanceSchema.methods.determineStatus = function() {
 // Pre-save middleware to set session details and determine status
 attendanceSchema.pre('save', async function(next) {
   if (this.isNew || this.isModified('checkInTime')) {
-    // Set session date if not provided
+    // Prefer explicit `date` if provided (controllers sometimes use `date`), otherwise fallback to checkInTime
     if (!this.sessionDate) {
-      this.sessionDate = new Date(this.checkInTime);
+      if (this.date) this.sessionDate = new Date(this.date);
+      else this.sessionDate = new Date(this.checkInTime);
     }
-    
+
     // Set session day if not provided
     if (!this.sessionDay) {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       this.sessionDay = days[this.sessionDate.getDay()];
     }
-    
+
     // Auto-determine status if not manually set
     if (!this.isModified('status') || this.status === 'Present') {
       this.status = this.determineStatus();
