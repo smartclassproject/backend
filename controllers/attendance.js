@@ -352,6 +352,7 @@ const processCheckIn = async (req, res) => {
 
     // Find current course schedule 
     let scheduleId = null;
+    let courseId = 0;
     device.classroom;
 
     const now = new Date();
@@ -368,6 +369,7 @@ const processCheckIn = async (req, res) => {
 
     if (schedule) {
       scheduleId = schedule._id;
+      courseId = schedule.courseId;
     }
 
     // Create attendance record
