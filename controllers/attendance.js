@@ -732,7 +732,7 @@ const getSchoolAttendance = async (req, res) => {
 
     // For school admins, we need to filter by school through related models
     // We'll use aggregation to join with Student and Course models to filter by school
-    const schoolObjectId = mongoose.Types.ObjectId(req.user.schoolId);
+    const schoolObjectId = new mongoose.Types.ObjectId(req.user.schoolId);
     const pipeline = [
       // First, get students from the school
       {
