@@ -322,7 +322,7 @@ const processCheckIn = async (req, res) => {
 
     // Find student by card ID
     const student = await Student.findOne({
-      rfidCardId: cardId,
+      cardId: cardId,
       schoolId: device.schoolId,
       isActive: true,
     });
