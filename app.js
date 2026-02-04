@@ -35,8 +35,9 @@ const corsOptions = {
     if (!origin) return callback(null, true);
 
     // Dev shortcut: allow all origins when explicitly enabled (use only for local debugging)
-    if (process.env.ALLOW_ALL_ORIGINS === 'true') {
-      console.warn('CORS: allowing all origins because ALLOW_ALL_ORIGINS=true');
+    // Also allow all origins by default in non-production environments so devices (ESP8266, mobile apps, etc.) can access the API during development.
+    if (process.env.ALLOW_ALL_ORIGINS === 'true' || process.env.NODE_ENV !== 'production') {
+      console.warn('CORS: allowing all origins because ALLOW_ALL_ORIGINS=true or NODE_ENV!=' + (process.env.NODE_ENV || 'undefined'));
       return callback(null, true);
     }
 

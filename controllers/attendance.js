@@ -311,7 +311,7 @@ const processCheckIn = async (req, res) => {
     }
 
     // Find device
-    const device = await Device.findById(deviceId);
+    const device = await Device.findOne({serialNumber: deviceId});
     if (!device) {
       return sendError(res, 404, "Device not found");
     }
