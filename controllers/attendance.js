@@ -3,6 +3,7 @@ const Student = require("../models/Student");
 const Device = require("../models/Device");
 const Course = require("../models/Course");
 const CourseSchedule = require("../models/CourseSchedule");
+const mongoose = require("mongoose");
 const { sendResponse, sendError } = require("../utils/response");
 
 /**
@@ -731,6 +732,7 @@ const getSchoolAttendance = async (req, res) => {
 
     // For school admins, we need to filter by school through related models
     // We'll use aggregation to join with Student and Course models to filter by school
+    const schoolObjectId = mongoose.Types.ObjectId(req.user.schoolId);
     const pipeline = [
       // First, get students from the school
       {
@@ -747,7 +749,7 @@ const getSchoolAttendance = async (req, res) => {
       // Filter by school ID from the student
       {
         $match: {
-          "student.schoolId": req.user.schoolId,
+          "student.schoolId": schoolObjectId,
         },
       },
       // Apply other filters
@@ -764,7 +766,7 @@ const getSchoolAttendance = async (req, res) => {
         },
       },
       {
-        $unwind: "$course",
+        $unwind: { path: "$course", preserveNullAndEmptyArrays: true },
       },
       // Lookup schedule information
       {
@@ -776,7 +778,7 @@ const getSchoolAttendance = async (req, res) => {
         },
       },
       {
-        $unwind: "$schedule",
+        $unwind: { path: "$schedule", preserveNullAndEmptyArrays: true },
       },
       // Lookup major information
       {
@@ -788,7 +790,7 @@ const getSchoolAttendance = async (req, res) => {
         },
       },
       {
-        $unwind: "$major",
+        $unwind: { path: "$major", preserveNullAndEmptyArrays: true },
       },
       // Add search functionality
       ...(search
@@ -857,10 +859,11 @@ const getSchoolAttendance = async (req, res) => {
       },
     ];
 
-    // Get total count using a similar pipeline but without skip/limit
-    const countPipeline = [
-      ...pipeline.slice(0, -2), // Remove skip and limit
-    ];
+    // Get total count using a similar pipeline but without pagination and projection
+    const countPipeline = pipeline.filter(
+      (stage) =>
+        !("$skip" in stage) && !("$limit" in stage) && !("$project" in stage),
+    );
 
     const [attendance, totalResult] = await Promise.all([
       Attendance.aggregate(pipeline),
