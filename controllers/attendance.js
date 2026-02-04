@@ -798,8 +798,7 @@ const getSchoolAttendance = async (req, res) => {
             {
               $match: {
                 $or: [
-                  { "student.firstName": { $regex: search, $options: "i" } },
-                  { "student.lastName": { $regex: search, $options: "i" } },
+                  { "student.name": { $regex: search, $options: "i" } },
                   { "student.studentId": { $regex: search, $options: "i" } },
                   { "course.name": { $regex: search, $options: "i" } },
                 ],
@@ -827,8 +826,7 @@ const getSchoolAttendance = async (req, res) => {
           _id: 1,
           studentId: {
             _id: "$student._id",
-            firstName: "$student.firstName",
-            lastName: "$student.lastName",
+            name: "$student.name",
             studentId: "$student.studentId",
             majorId: "$student.majorId",
           },
