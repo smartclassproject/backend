@@ -1,5 +1,7 @@
 const Teacher = require('../models/Teacher');
+const TeacherUser = require('../models/TeacherUser');
 const PDFDocument = require('pdfkit');
+const bcrypt = require('bcryptjs');
 const {  sendError, sendResponse} = require('../utils/response');
 
 // GET /api/teachers - Get all teachers with pagination, search and filters
@@ -49,7 +51,17 @@ exports.getAllTeachers = async (req, res) => {
       Teacher.countDocuments(query)
     ]);
 
-    return sendResponse(res, 200, { message: 'Teachers retrieved successfully', data: teachers, pagination: { page, limit, total } });
+    // Add passwordSetup status to each teacher
+    const teachersWithPasswordStatus = await Promise.all(
+      teachers.map(async (teacher) => {
+        const teacherUser = await TeacherUser.findOne({ teacherId: teacher._id }).select('passwordSetup');
+        const teacherObj = teacher.toObject();
+        teacherObj.passwordSetup = teacherUser ? teacherUser.passwordSetup : false;
+        return teacherObj;
+      })
+    );
+
+    return sendResponse(res, 200, { message: 'Teachers retrieved successfully', data: teachersWithPasswordStatus, pagination: { page, limit, total } });
   } catch (error) {
     return sendError(res, 500, 'Internal server error');
   }
@@ -81,15 +93,23 @@ exports.createTeacher = async (req, res) => {
       phone,
       profileUrl,
       department,
-      specialization
+      specialization,
+      defaultPassword
     } = req.body;
 
     // Check if email already exists
     const existingTeacher = await Teacher.findOne({ email: email.toLowerCase() });
     if (existingTeacher) {
-      return errorResponse(res, 409, 'Email already exists');
+      return sendError(res, 409, 'Email already exists');
     }
 
+    // Check if TeacherUser already exists for this email
+    const existingTeacherUser = await TeacherUser.findOne({ email: email.toLowerCase() });
+    if (existingTeacherUser) {
+      return sendError(res, 409, 'Teacher user account already exists for this email');
+    }
+
+    // Create teacher
     const teacher = new Teacher({
       schoolId: req.user.schoolId,
       name,
@@ -102,8 +122,52 @@ exports.createTeacher = async (req, res) => {
 
     await teacher.save();
 
-    return sendResponse(res, 201, { message: 'Teacher created successfully', data: teacher });
+    // Create TeacherUser with default password
+    const defaultPwd = defaultPassword || process.env.DEFAULT_TEACHER_PASSWORD || 'Teacher@123';
+    const saltRounds = 12;
+    const hashedDefaultPassword = await bcrypt.hash(defaultPwd, saltRounds);
+
+    const teacherUser = new TeacherUser({
+      email: email.toLowerCase(),
+      password: hashedDefaultPassword, // Set default password
+      defaultPassword: hashedDefaultPassword, // Store for first-time login check
+      teacherId: teacher._id,
+      passwordSetup: false, // Mark as not set up yet
+      isActive: true
+    });
+
+    await teacherUser.save();
+
+    // Get school information for email
+    const School = require('../models/School');
+    const school = await School.findById(req.user.schoolId).select('name location');
+
+    // Send email with login credentials
+    try {
+      const emailService = require('../utils/emailService');
+      await emailService.sendTeacherCredentialsEmail(
+        email.toLowerCase(),
+        email.toLowerCase(),
+        defaultPwd,
+        name.split(' ')[0] || name,
+        school
+      );
+      console.log(`✅ Teacher credentials email sent successfully to ${email}`);
+    } catch (emailError) {
+      console.error('Failed to send teacher credentials email:', emailError);
+      // Don't fail the teacher creation if email fails, just log the error
+      // The teacher is already created, so we continue
+    }
+
+    return sendResponse(res, 201, { 
+      message: 'Teacher created successfully. Login credentials have been sent to the teacher\'s email.', 
+      data: {
+        ...teacher.toObject(),
+        defaultPassword: defaultPwd // Return default password for admin reference (only on creation)
+      }
+    });
   } catch (error) {
+    console.error('Error creating teacher:', error);
     return sendError(res, 500, 'Internal server error');
   }
 };
@@ -178,6 +242,76 @@ exports.deleteTeacher = async (req, res) => {
 
     return sendResponse(res, 200, { message: 'Teacher deleted successfully' });
   } catch (error) {
+    return sendError(res, 500, 'Internal server error');
+  }
+};
+
+// POST /api/teachers/:id/resend-credentials - Resend login credentials email to teacher
+exports.resendTeacherCredentials = async (req, res) => {
+  try {
+    const teacherId = req.params.id;
+
+    // Find teacher
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+      return sendError(res, 404, 'Teacher not found');
+    }
+
+    // Check access permissions
+    if (req.user.role === 'school_admin' && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
+      return sendError(res, 403, 'Access denied - teacher does not belong to your school');
+    }
+
+    // Find teacher user account
+    const teacherUser = await TeacherUser.findOne({ teacherId: teacher._id });
+    if (!teacherUser) {
+      return sendError(res, 404, 'Teacher user account not found');
+    }
+
+    // Check if teacher has already set up their password
+    if (teacherUser.passwordSetup) {
+      return sendError(res, 400, 'Teacher has already set up their password. Cannot resend credentials.');
+    }
+
+    // Get or generate default password
+    const defaultPwd = process.env.DEFAULT_TEACHER_PASSWORD || 'Teacher@123';
+    
+    // Update the default password in TeacherUser (in case it was different)
+    const saltRounds = 12;
+    const hashedDefaultPassword = await bcrypt.hash(defaultPwd, saltRounds);
+    teacherUser.password = hashedDefaultPassword;
+    teacherUser.defaultPassword = hashedDefaultPassword;
+    await teacherUser.save();
+
+    // Get school information for email
+    const School = require('../models/School');
+    const school = await School.findById(teacher.schoolId).select('name location');
+
+    // Send email with login credentials
+    try {
+      const emailService = require('../utils/emailService');
+      await emailService.sendTeacherCredentialsEmail(
+        teacher.email,
+        teacher.email,
+        defaultPwd,
+        teacher.name.split(' ')[0] || teacher.name,
+        school
+      );
+      console.log(`✅ Teacher credentials email resent successfully to ${teacher.email}`);
+      
+      return sendResponse(res, 200, {
+        message: 'Login credentials email has been resent successfully to the teacher.',
+        data: {
+          teacherId: teacher._id,
+          email: teacher.email
+        }
+      });
+    } catch (emailError) {
+      console.error('Failed to resend teacher credentials email:', emailError);
+      return sendError(res, 500, 'Failed to send email. Please try again later.');
+    }
+  } catch (error) {
+    console.error('Error resending teacher credentials:', error);
     return sendError(res, 500, 'Internal server error');
   }
 };
@@ -362,9 +496,19 @@ exports.getMySchoolTeachers = async (req, res) => {
       Teacher.countDocuments(query)
     ]);
 
+    // Add passwordSetup status to each teacher
+    const teachersWithPasswordStatus = await Promise.all(
+      teachers.map(async (teacher) => {
+        const teacherUser = await TeacherUser.findOne({ teacherId: teacher._id }).select('passwordSetup');
+        const teacherObj = teacher.toObject();
+        teacherObj.passwordSetup = teacherUser ? teacherUser.passwordSetup : false;
+        return teacherObj;
+      })
+    );
+
     return sendResponse(res, 200, { 
       message: 'School teachers retrieved successfully', 
-      data: teachers, 
+      data: teachersWithPasswordStatus, 
       pagination: { page, limit, total, pages: Math.ceil(total / limit) } 
     });
   } catch (error) {

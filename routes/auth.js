@@ -268,4 +268,74 @@ router.post('/forgot-password',
 // @desc    Set up password using token from email
 router.post('/setup-password', authController.setupPassword);
 
+/**
+ * @swagger
+ * /api/auth/teacher/set-password:
+ *   post:
+ *     summary: Set new password for teacher on first login
+ *     tags: [Authentication]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - defaultPassword
+ *               - newPassword
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Teacher email address
+ *               defaultPassword:
+ *                 type: string
+ *                 description: The default password provided by admin
+ *               newPassword:
+ *                 type: string
+ *                 description: The new password to set
+ *                 minLength: 4
+ *     responses:
+ *       200:
+ *         description: Password set successfully and teacher logged in
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Password set successfully. You are now logged in."
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                       description: JWT authentication token
+ *                     user:
+ *                       type: object
+ *                       description: Teacher profile information
+ *       400:
+ *         description: Invalid request or password already set
+ *       401:
+ *         description: Invalid default password
+ *       404:
+ *         description: Teacher user not found
+ */
+// @route   POST /api/auth/teacher/set-password
+// @desc    Set new password for teacher on first login
+router.post('/teacher/set-password',
+  [
+    body('email').isEmail().withMessage('Please enter a valid email'),
+    body('defaultPassword').notEmpty().withMessage('Default password is required'),
+    body('newPassword').isLength({ min: 4 }).withMessage('New password must be at least 4 characters long')
+  ],
+  validateRequest,
+  authController.teacherSetPassword
+);
+
 module.exports = router; 

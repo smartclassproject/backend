@@ -407,6 +407,57 @@ router.delete('/teachers/:id',
 
 /**
  * @swagger
+ * /api/teachers/{id}/resend-credentials:
+ *   post:
+ *     summary: Resend login credentials email to teacher who hasn't set up password
+ *     tags: [Teachers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Teacher ID
+ *     responses:
+ *       200:
+ *         description: Credentials email resent successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Login credentials email has been resent successfully to the teacher."
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     teacherId:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *       400:
+ *         description: Teacher has already set up password
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Teacher or teacher user account not found
+ *       500:
+ *         description: Internal server error or email sending failed
+ */
+router.post('/:id/resend-credentials',
+  authenticateToken,
+  authorize('school_admin', 'super_admin'),
+  teacherController.resendTeacherCredentials
+);
+
+/**
+ * @swagger
  * /api/teachers/export/pdf:
  *   get:
  *     summary: Export teachers to PDF

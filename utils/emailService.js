@@ -251,6 +251,135 @@ class EmailService {
   }
 
   /**
+   * Send teacher login credentials email
+   * @param {string} to - Recipient email
+   * @param {string} email - Login email
+   * @param {string} defaultPassword - Default password for first login
+   * @param {string} teacherName - Teacher's name
+   * @param {Object} school - School information (optional)
+   * @returns {Promise} - Email send result
+   */
+  async sendTeacherCredentialsEmail(to, email, defaultPassword, teacherName, school = null) {
+    // Check if email service is properly configured
+    if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      throw new Error('Email service not properly configured. Please check EMAIL_HOST, EMAIL_USER, and EMAIL_PASS environment variables.');
+    }
+
+    const loginUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    
+    // School information section
+    const schoolInfo = school ? `
+      <div style="background: #f0f8ff; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px;">
+        <h3 style="color: #333; margin: 0 0 10px 0; font-size: 16px;">🏫 School Assignment</h3>
+        <p style="color: #555; margin: 0; font-weight: bold;">${school.name}</p>
+        ${school.location ? `<p style="color: #666; margin: 5px 0 0 0; font-size: 14px;">📍 ${school.location}</p>` : ''}
+      </div>
+    ` : '';
+    
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to: to,
+      subject: 'Welcome to SmartClass - Your Login Credentials',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">SmartClass</h1>
+          </div>
+          
+          <div style="padding: 30px; background: #f9f9f9;">
+            <h2 style="color: #333; margin-bottom: 20px;">Welcome to SmartClass!</h2>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+              Hello ${teacherName},
+            </p>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
+              Your teacher account has been created successfully in the SmartClass system.
+            </p>
+            
+            ${schoolInfo}
+            
+            <div style="background: #fff; border: 2px solid #667eea; border-radius: 8px; padding: 20px; margin: 20px 0;">
+              <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">🔐 Your Login Credentials</h3>
+              
+              <div style="margin-bottom: 15px;">
+                <p style="color: #666; margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">Email:</p>
+                <p style="color: #333; margin: 0; font-size: 16px; font-family: monospace; background: #f5f5f5; padding: 8px; border-radius: 4px;">${email}</p>
+              </div>
+              
+              <div style="margin-bottom: 15px;">
+                <p style="color: #666; margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">Default Password:</p>
+                <p style="color: #333; margin: 0; font-size: 16px; font-family: monospace; background: #f5f5f5; padding: 8px; border-radius: 4px;">${defaultPassword}</p>
+              </div>
+            </div>
+            
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
+              <p style="color: #856404; margin: 0; font-size: 14px; line-height: 1.6;">
+                <strong>⚠️ Important:</strong> You will be required to change this password on your first login for security purposes.
+              </p>
+            </div>
+            
+            <p style="color: #666; line-height: 1.6; margin-bottom: 30px;">
+              To access your account, please visit the SmartClass portal and log in with the credentials above:
+            </p>
+            
+            <div style="text-align: center; margin-bottom: 30px;">
+              <a href="${loginUrl}/login" 
+                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                        color: white; 
+                        padding: 15px 30px; 
+                        text-decoration: none; 
+                        border-radius: 5px; 
+                        display: inline-block; 
+                        font-weight: bold;">
+                Login to SmartClass
+              </a>
+            </div>
+            
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
+              <p style="color: #999; font-size: 12px; margin: 0;">
+                Please keep your login credentials secure and do not share them with anyone.<br>
+                If you have any questions, please contact your school administrator.
+              </p>
+            </div>
+          </div>
+          
+          <div style="background: #333; padding: 20px; text-align: center;">
+            <p style="color: #999; margin: 0; font-size: 12px;">
+              © 2024 SmartClass. All rights reserved.
+            </p>
+          </div>
+        </div>
+      `,
+      text: `
+        Welcome to SmartClass!
+        
+        Hello ${teacherName},
+        
+        Your teacher account has been created successfully in the SmartClass system.
+        
+        ${school ? `School Assignment: ${school.name}${school.location ? ` (${school.location})` : ''}` : ''}
+        
+        Your Login Credentials:
+        Email: ${email}
+        Default Password: ${defaultPassword}
+        
+        Important: You will be required to change this password on your first login for security purposes.
+        
+        To access your account, please visit: ${loginUrl}/login
+        
+        Please keep your login credentials secure and do not share them with anyone.
+        If you have any questions, please contact your school administrator.
+        
+        Best regards,
+        The SmartClass Team
+      `
+    };
+
+    return await this.sendEmailWithRetry(mailOptions, 'teacher credentials');
+  }
+
+  /**
    * Test email service connection with multiple configurations
    * @returns {Promise<boolean>} - Connection test result
    */

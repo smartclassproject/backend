@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 const AdminUser = require('../models/AdminUser');
+const TeacherUser = require('../models/TeacherUser');
+const Teacher = require('../models/Teacher');
 
 /**
  * Authentication middleware to verify JWT token
@@ -18,8 +20,27 @@ const authenticateToken = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'smartclass2025');
     
-    // Find user in database
-    const user = await AdminUser.findById(decoded.userId).select('-password');
+    // Determine user type and find user in appropriate database
+    let user;
+    if (decoded.userType === 'teacher' || decoded.role === 'teacher') {
+      user = await TeacherUser.findById(decoded.userId).select('-password');
+      if (user) {
+        const teacher = await Teacher.findById(decoded.teacherId || user.teacherId);
+        if (!teacher || !teacher.isActive) {
+          return res.status(401).json({
+            success: false,
+            message: 'Teacher account is not active'
+          });
+        }
+        // Add teacher info to user object
+        user.teacherId = teacher._id;
+        user.schoolId = teacher.schoolId;
+        user.name = teacher.name;
+      }
+    } else {
+      user = await AdminUser.findById(decoded.userId).select('-password');
+    }
+    
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -32,6 +53,12 @@ const authenticateToken = async (req, res, next) => {
         success: false,
         message: 'Account is deactivated'
       });
+    }
+
+    // Add decoded token info to user object for easier access
+    user.userType = decoded.userType || (decoded.role === 'teacher' ? 'teacher' : 'admin');
+    if (decoded.teacherId) {
+      user.teacherId = decoded.teacherId;
     }
 
     // Add user to request object
@@ -74,7 +101,10 @@ const authorizeRoles = (...allowedRoles) => {
       });
     }
 
-    if (!allowedRoles.includes(req.user.role)) {
+    // Get role from user object (could be from AdminUser or TeacherUser)
+    const userRole = req.user.role || (req.user.userType === 'teacher' ? 'teacher' : req.user.role);
+    
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
         message: 'Access denied - insufficient permissions'

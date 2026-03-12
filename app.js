@@ -19,6 +19,9 @@ const scheduleRoutes = require('./routes/schedules');
 const attendanceRoutes = require('./routes/attendance');
 const deviceRoutes = require('./routes/devices');
 const dashboardRoutes = require('./routes/dashboard');
+const examRoutes = require('./routes/exams');
+const lessonRoutes = require('./routes/lessons');
+const materialRoutes = require('./routes/materials');
 
 // Import middleware
 const { errorHandler } = require('./middlewares/errorHandler');
@@ -116,6 +119,9 @@ app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 app.use('/api/students', authenticateToken, studentRoutes);
 app.use('/api/teachers', authenticateToken, teacherRoutes);
 app.use('/api/majors', authenticateToken, majorRoutes);
+app.use('/api/exams', authenticateToken, examRoutes);
+app.use('/api/lessons', authenticateToken, lessonRoutes);
+app.use('/api/materials', authenticateToken, materialRoutes);
 
 // Swagger documentation
 const swaggerJsdoc = require('swagger-jsdoc');

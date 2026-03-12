@@ -34,9 +34,16 @@ exports.getAllSchedules = async (req, res) => {
 
     // Build query based on user role
     const query = {};
+    const userRole = req.user.role || (req.user.userType === 'teacher' ? 'teacher' : req.user.role);
     
     // School admin can only see their school's schedules
-    if (req.user.role === 'school_admin') {
+    if (userRole === 'school_admin') {
+      query.schoolId = req.user.schoolId;
+    }
+    
+    // Teacher can only see their own schedules
+    if (userRole === 'teacher') {
+      query.teacherId = req.user.teacherId || req.user._id;
       query.schoolId = req.user.schoolId;
     }
 
@@ -129,8 +136,16 @@ exports.getCalendarSchedules = async (req, res) => {
       isActive: true
     };
     
+    const userRole = req.user.role || (req.user.userType === 'teacher' ? 'teacher' : req.user.role);
+    
     // School admin can only see their school's schedules
-    if (req.user.role === 'school_admin') {
+    if (userRole === 'school_admin') {
+      query.schoolId = req.user.schoolId;
+    }
+    
+    // Teacher can only see their own schedules
+    if (userRole === 'teacher') {
+      query.teacherId = req.user.teacherId || req.user._id;
       query.schoolId = req.user.schoolId;
     }
 
@@ -301,6 +316,25 @@ exports.updateSchedule = async (req, res) => {
     const schedule = await CourseSchedule.findById(scheduleId);
     if (!schedule) {
       return sendError(res, 404, 'Schedule not found');
+    }
+
+    // Check access permissions
+    const userRole = req.user.role || (req.user.userType === 'teacher' ? 'teacher' : req.user.role);
+    const userTeacherId = req.user.teacherId || req.user._id;
+    
+    // Teachers can only modify their own schedules
+    if (userRole === 'teacher' && schedule.teacherId.toString() !== userTeacherId.toString()) {
+      return sendError(res, 403, 'Access denied - you can only modify your own schedules');
+    }
+    
+    // School admins can only modify schedules from their school
+    if (userRole === 'school_admin' && schedule.schoolId.toString() !== req.user.schoolId.toString()) {
+      return sendError(res, 403, 'Access denied - schedule does not belong to your school');
+    }
+
+    // Teachers cannot change teacherId (they can only modify their own schedules)
+    if (userRole === 'teacher' && teacherId && teacherId !== schedule.teacherId.toString()) {
+      return sendError(res, 403, 'You cannot change the teacher assignment');
     }
 
     // Verify teacher exists and belongs to the school if being changed

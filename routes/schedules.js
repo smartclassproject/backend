@@ -667,7 +667,7 @@ router.post('/',
  */
 router.put('/:id', 
   authenticateToken, 
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'teacher', 'super_admin'),
   [
     body('courseId').optional().isMongoId().withMessage('Invalid course ID'),
     body('teacherId').optional().isMongoId().withMessage('Invalid teacher ID'),

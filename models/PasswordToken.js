@@ -9,7 +9,7 @@ const passwordTokenSchema = new mongoose.Schema({
   userModel: {
     type: String,
     required: true,
-    enum: ['AdminUser', 'Teacher', 'Student']
+    enum: ['AdminUser', 'TeacherUser', 'Teacher', 'Student']
   },
   token: {
     type: String,
