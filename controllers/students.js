@@ -1,5 +1,6 @@
 const Student = require('../models/Student');
 const Major = require('../models/Major');
+const Class = require('../models/Class');
 const Course = require('../models/Course');
 const CourseSchedule = require('../models/CourseSchedule');
 const PDFDocument = require('pdfkit');
@@ -51,6 +52,7 @@ exports.getAllStudents = async (req, res) => {
     const [students, total] = await Promise.all([
       Student.find(query)
         .populate('majorId', 'name code')
+        .populate('classId', 'name code')
         .populate('attendanceCount')
         .populate('presentCount')
         .populate('absentCount')
@@ -72,6 +74,7 @@ exports.getStudentById = async (req, res) => {
   try {
     const student = await Student.findById(req.params.id)
       .populate('majorId', 'name code description')
+      .populate('classId', 'name code')
       .populate('attendanceCount')
       .populate('presentCount')
       .populate('absentCount')
@@ -95,11 +98,14 @@ exports.createStudent = async (req, res) => {
       studentId,
       cardId,
       majorId,
+      classId,
       class: studentClass,
       dateOfBirth,
       email,
       phone,
-      profileUrl
+      profileUrl,
+      enrollmentYear,
+      enrollmentDate
     } = req.body;
 
     // Check if date of birth is valid
@@ -115,6 +121,21 @@ exports.createStudent = async (req, res) => {
     
     if (dateOfBirthDate < minDate || dateOfBirthDate > maxDate) {
       return sendError(res, 400, 'The student is not eligible to be enrolled');
+    }
+
+    // Class: require classId or class (legacy)
+    let resolvedClass = studentClass || '';
+    let resolvedClassId = null;
+    if (classId) {
+      const classDoc = await Class.findById(classId);
+      if (!classDoc) return sendError(res, 404, 'Class not found');
+      if (classDoc.schoolId.toString() !== (req.user.schoolId || (await Major.findById(majorId))?.schoolId)?.toString()) {
+        return sendError(res, 403, 'Class does not belong to your school');
+      }
+      resolvedClassId = classDoc._id;
+      resolvedClass = classDoc.name;
+    } else if (!resolvedClass.trim()) {
+      return sendError(res, 400, 'Class is required (select a class or provide class name)');
     }
 
     // Check if student ID already exists
@@ -139,23 +160,36 @@ exports.createStudent = async (req, res) => {
       return sendError(res, 403, 'Major does not belong to your school');
     }
 
+    const schoolId = req.user.role === 'school_admin' ? req.user.schoolId : major.schoolId;
+
+    // Enrollment: use enrollmentYear (joining year) or enrollmentDate
+    let resolvedEnrollmentDate = enrollmentDate ? new Date(enrollmentDate) : new Date();
+    if (enrollmentYear) {
+      const y = parseInt(enrollmentYear, 10);
+      if (y >= 2000 && y <= 2100) resolvedEnrollmentDate = new Date(y, 0, 1);
+    }
+
     const student = new Student({
-      schoolId: req.user.role === 'school_admin' ? req.user.schoolId : major.schoolId,
+      schoolId,
       name,
       studentId,
       cardId,
       majorId,
-      class: studentClass,
+      classId: resolvedClassId,
+      class: resolvedClass,
+      enrollmentYear: enrollmentYear ? parseInt(enrollmentYear, 10) : undefined,
       dateOfBirth,
       email,
       phone,
-      profileUrl
+      profileUrl,
+      enrollmentDate: resolvedEnrollmentDate
     });
 
     await student.save();
 
     const populatedStudent = await Student.findById(student._id)
-      .populate('majorId', 'name code');
+      .populate('majorId', 'name code')
+      .populate('classId', 'name code');
 
     return sendResponse(res, 201, { message: 'Student created successfully', data: populatedStudent });
   } catch (error) {
@@ -172,13 +206,15 @@ exports.updateStudent = async (req, res) => {
       studentId,
       cardId,
       majorId,
+      classId,
       class: studentClass,
       dateOfBirth,
       email,
       phone,
       profileUrl,
       isActive,
-      enrollmentDate
+      enrollmentDate,
+      enrollmentYear
     } = req.body;
 
     const student = await Student.findById(req.params.id);
@@ -220,23 +256,47 @@ exports.updateStudent = async (req, res) => {
       }
     }
 
+    // Class: classId or class (legacy)
+    if (classId !== undefined) {
+      if (classId) {
+        const classDoc = await Class.findById(classId);
+        if (!classDoc) return sendError(res, 404, 'Class not found');
+        if (classDoc.schoolId.toString() !== student.schoolId.toString()) {
+          return sendError(res, 403, 'Class does not belong to your school');
+        }
+        student.classId = classDoc._id;
+        student.class = classDoc.name;
+      } else {
+        student.classId = undefined;
+        student.class = studentClass || '';
+      }
+    } else if (studentClass !== undefined) {
+      student.class = studentClass;
+    }
+
+    // Enrollment year
+    if (enrollmentYear !== undefined) {
+      const y = parseInt(enrollmentYear, 10);
+      if (!isNaN(y) && y >= 2000 && y <= 2100) student.enrollmentYear = y;
+    }
+
     // Update fields
     if (name) student.name = name;
     if (studentId) student.studentId = studentId;
     if (cardId) student.cardId = cardId;
     if (majorId) student.majorId = majorId;
-    if (studentClass) student.class = studentClass;
     if (dateOfBirth) student.dateOfBirth = dateOfBirth;
     if (email !== undefined) student.email = email;
     if (phone !== undefined) student.phone = phone;
     if (profileUrl !== undefined) student.profileUrl = profileUrl;
     if (isActive !== undefined) student.isActive = isActive;
-    if (enrollmentDate !== undefined) student.enrollmentDate = enrollmentDate;
+    if (enrollmentDate !== undefined) student.enrollmentDate = new Date(enrollmentDate);
     
     await student.save();
 
     const updatedStudent = await Student.findById(student._id)
-      .populate('majorId', 'name code');
+      .populate('majorId', 'name code')
+      .populate('classId', 'name code');
 
     return sendResponse(res, 200, { message: 'Student updated successfully', data: updatedStudent });
   } catch (error) {
@@ -488,6 +548,7 @@ exports.getStudentsBySchool = async (req, res) => {
     const [students, total] = await Promise.all([
       Student.find(query)
         .populate('majorId', 'name code')
+        .populate('classId', 'name code')
         .populate('attendanceCount')
         .populate('presentCount')
         .populate('absentCount')
@@ -568,6 +629,7 @@ exports.getMySchoolStudents = async (req, res) => {
     const [students, total] = await Promise.all([
       Student.find(query)
         .populate('majorId', 'name code')
+        .populate('classId', 'name code')
         .populate('attendanceCount')
         .populate('presentCount')
         .populate('absentCount')

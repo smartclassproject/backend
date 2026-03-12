@@ -68,6 +68,50 @@ exports.getSchoolById = async (req, res, next) => {
   }
 };
 
+// GET /api/schools/my-school - Get current user's school (school_admin only)
+exports.getMySchool = async (req, res, next) => {
+  try {
+    if (!req.user.schoolId) {
+      return sendError(res, 403, 'Only school admins can access their school');
+    }
+    const school = await School.findById(req.user.schoolId)
+      .populate('studentsCount')
+      .populate('teachersCount')
+      .populate('devicesCount');
+    if (!school) {
+      return sendError(res, 404, 'School not found');
+    }
+    sendResponse(res, 200, { message: 'School retrieved successfully', data: school });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// PUT /api/schools/my-school - Update current user's school (school_admin only; name, location, numberOfTerms)
+exports.updateMySchool = async (req, res, next) => {
+  try {
+    if (!req.user.schoolId) {
+      return sendError(res, 403, 'Only school admins can update their school');
+    }
+    const { name, location, numberOfTerms } = req.body;
+    const school = await School.findById(req.user.schoolId);
+    if (!school) {
+      return sendError(res, 404, 'School not found');
+    }
+    if (name !== undefined) school.name = name;
+    if (location !== undefined) school.location = location;
+    if (numberOfTerms !== undefined) {
+      const n = parseInt(numberOfTerms, 10);
+      if (isNaN(n) || n < 1 || n > 6) return sendError(res, 400, 'Number of terms must be between 1 and 6');
+      school.numberOfTerms = n;
+    }
+    await school.save();
+    sendResponse(res, 200, { message: 'School updated successfully', data: school });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // POST /api/schools - Create new school
 exports.createSchool = async (req, res, next) => {
   try {
@@ -98,7 +142,7 @@ exports.createSchool = async (req, res, next) => {
 // PUT /api/schools/:id - Update school
 exports.updateSchool = async (req, res, next) => {
   try {
-    const { name, location } = req.body;
+    const { name, location, numberOfTerms } = req.body;
     const schoolId = req.params.id;
 
     const school = await School.findById(schoolId);
@@ -108,7 +152,7 @@ exports.updateSchool = async (req, res, next) => {
 
     // Check if name is being changed and if it conflicts with existing school
     if (name && name !== school.name) {
-      const existingSchool = await School.findOne({ 
+      const existingSchool = await School.findOne({
         name: { $regex: new RegExp(`^${name}$`, 'i') },
         _id: { $ne: schoolId }
       });
@@ -120,6 +164,11 @@ exports.updateSchool = async (req, res, next) => {
     // Update fields
     if (name) school.name = name;
     if (location) school.location = location;
+    if (numberOfTerms !== undefined) {
+      const n = parseInt(numberOfTerms, 10);
+      if (n < 1 || n > 6) return sendError(res, 400, 'Number of terms must be between 1 and 6');
+      school.numberOfTerms = n;
+    }
 
     await school.save();
 

@@ -353,10 +353,12 @@ router.post('/students', authorizeRoles('school_admin'),
       .isLength({ max: 50 }).withMessage('Card ID cannot exceed 50 characters'),
     body('majorId').notEmpty().withMessage('Major ID is required')
       .isMongoId().withMessage('Invalid major ID'),
-    body('class').notEmpty().withMessage('Class is required')
-      .isLength({ max: 10 }).withMessage('Class cannot exceed 10 characters'),
+    body('classId').notEmpty().withMessage('Class is required')
+      .isMongoId().withMessage('Invalid class ID'),
+    body('class').optional().isLength({ max: 50 }).withMessage('Class cannot exceed 50 characters'),
     body('dateOfBirth').notEmpty().withMessage('Date of birth is required')
       .isDate().withMessage('Invalid date of birth'),
+    body('enrollmentYear').optional().isInt({ min: 2000, max: 2100 }).withMessage('Enrollment year must be 2000-2100'),
     body('email').optional().isEmail().withMessage('Please enter a valid email'),
     body('phone').optional().isLength({ max: 20 }).withMessage('Phone number cannot exceed 20 characters')
   ],
@@ -445,8 +447,10 @@ router.put('/students/:id',
     body('name').optional().isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
     body('studentId').optional().isLength({ max: 20 }).withMessage('Student ID cannot exceed 20 characters'),
     body('cardId').optional().isLength({ max: 50 }).withMessage('Card ID cannot exceed 50 characters'),
-    body('class').optional().isLength({ max: 10 }).withMessage('Class cannot exceed 10 characters'),
+    body('classId').optional().isMongoId().withMessage('Invalid class ID'),
+    body('class').optional().isLength({ max: 50 }).withMessage('Class cannot exceed 50 characters'),
     body('dateOfBirth').optional().isDate().withMessage('Invalid date of birth'),
+    body('enrollmentYear').optional().isInt({ min: 2000, max: 2100 }).withMessage('Enrollment year must be 2000-2100'),
     body('email').optional().isEmail().withMessage('Please enter a valid email'),
     body('phone').optional().isLength({ max: 20 }).withMessage('Phone number cannot exceed 20 characters')
   ],

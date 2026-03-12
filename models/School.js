@@ -40,6 +40,12 @@ const schoolSchema = new mongoose.Schema({
     required: [true, 'School location is required'],
     trim: true,
     maxlength: [200, 'Location cannot exceed 200 characters']
+  },
+  numberOfTerms: {
+    type: Number,
+    default: 3,
+    min: [1, 'At least 1 term is required'],
+    max: [6, 'Cannot exceed 6 terms']
   }
 }, {
   timestamps: true,

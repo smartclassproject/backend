@@ -59,6 +59,24 @@ const { body } = require('express-validator');
 router.get('/', authenticateToken, schoolController.getAllSchools);
 
 /**
+ * GET /api/schools/my-school - Get current user's school (school_admin)
+ * PUT /api/schools/my-school - Update current user's school (school_admin; name, location, numberOfTerms)
+ * Must be defined before /:id so "my-school" is not interpreted as id.
+ */
+router.get('/my-school', authenticateToken, authorizeRoles('school_admin'), schoolController.getMySchool);
+router.put('/my-school',
+  authenticateToken,
+  authorizeRoles('school_admin'),
+  [
+    body('name').optional().isLength({ max: 100 }).withMessage('School name cannot exceed 100 characters'),
+    body('location').optional().isLength({ max: 200 }).withMessage('Location cannot exceed 200 characters'),
+    body('numberOfTerms').optional().isInt({ min: 1, max: 6 }).withMessage('Number of terms must be between 1 and 6')
+  ],
+  validateRequest,
+  schoolController.updateMySchool
+);
+
+/**
  * @swagger
  * /api/schools/{id}:
  *   get:
@@ -193,7 +211,8 @@ router.put('/:id',
   authorizeRoles('super_admin'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('School name cannot exceed 100 characters'),
-    body('location').optional().isLength({ max: 200 }).withMessage('Location cannot exceed 200 characters')
+    body('location').optional().isLength({ max: 200 }).withMessage('Location cannot exceed 200 characters'),
+    body('numberOfTerms').optional().isInt({ min: 1, max: 6 }).withMessage('Number of terms must be between 1 and 6')
   ],
   validateRequest,
   schoolController.updateSchool

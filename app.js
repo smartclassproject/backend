@@ -22,6 +22,8 @@ const dashboardRoutes = require('./routes/dashboard');
 const examRoutes = require('./routes/exams');
 const lessonRoutes = require('./routes/lessons');
 const materialRoutes = require('./routes/materials');
+const reportCardRoutes = require('./routes/reportCards');
+const classRoutes = require('./routes/classes');
 
 // Import middleware
 const { errorHandler } = require('./middlewares/errorHandler');
@@ -32,6 +34,7 @@ const app = express();
 // Security middleware
 app.use(helmet());
 // CORS configuration
+let corsAllowAllWarningLogged = false;
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -40,7 +43,10 @@ const corsOptions = {
     // Dev shortcut: allow all origins when explicitly enabled (use only for local debugging)
     // Also allow all origins by default in non-production environments so devices (ESP8266, mobile apps, etc.) can access the API during development.
     if (process.env.ALLOW_ALL_ORIGINS === 'true' || process.env.NODE_ENV !== 'production') {
-      console.warn('CORS: allowing all origins because ALLOW_ALL_ORIGINS=true or NODE_ENV!=' + (process.env.NODE_ENV || 'undefined'));
+      if (!corsAllowAllWarningLogged) {
+        corsAllowAllWarningLogged = true;
+        console.warn('CORS: allowing all origins (ALLOW_ALL_ORIGINS=true or NODE_ENV!=' + (process.env.NODE_ENV || 'undefined') + ')');
+      }
       return callback(null, true);
     }
 
@@ -122,6 +128,8 @@ app.use('/api/majors', authenticateToken, majorRoutes);
 app.use('/api/exams', authenticateToken, examRoutes);
 app.use('/api/lessons', authenticateToken, lessonRoutes);
 app.use('/api/materials', authenticateToken, materialRoutes);
+app.use('/api/report-cards', authenticateToken, reportCardRoutes);
+app.use('/api/classes', authenticateToken, classRoutes);
 
 // Swagger documentation
 const swaggerJsdoc = require('swagger-jsdoc');

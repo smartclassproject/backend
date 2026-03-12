@@ -97,11 +97,21 @@ const studentSchema = new mongoose.Schema({
     ref: 'Major',
     required: [true, 'Major ID is required']
   },
+  classId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Class',
+    required: false
+  },
   class: {
     type: String,
-    required: [true, 'Class is required'],
+    required: false,
     trim: true,
-    maxlength: [10, 'Class cannot exceed 10 characters']
+    maxlength: [50, 'Class cannot exceed 50 characters']
+  },
+  enrollmentYear: {
+    type: Number,
+    min: [2000, 'Enrollment year must be 2000 or later'],
+    max: [2100, 'Enrollment year must be 2100 or earlier']
   },
   dateOfBirth: {
     type: Date,
@@ -184,9 +194,12 @@ studentSchema.virtual('lateCount', {
 // Indexes for better query performance
 studentSchema.index({ schoolId: 1 });
 studentSchema.index({ majorId: 1 });
+studentSchema.index({ classId: 1 });
 studentSchema.index({ studentId: 1 });
 studentSchema.index({ cardId: 1 });
 studentSchema.index({ name: 1 });
+studentSchema.index({ class: 1 });
+studentSchema.index({ enrollmentYear: 1 });
 studentSchema.index({ class: 1 });
 studentSchema.index({ isActive: 1 });
 

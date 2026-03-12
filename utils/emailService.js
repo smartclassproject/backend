@@ -128,7 +128,7 @@ class EmailService {
           
           <div style="background: #333; padding: 20px; text-align: center;">
             <p style="color: #999; margin: 0; font-size: 12px;">
-              © 2024 SmartClass. All rights reserved.
+              © 2026 SmartClass. All rights reserved.
             </p>
           </div>
         </div>
@@ -224,7 +224,7 @@ class EmailService {
           
           <div style="background: #333; padding: 20px; text-align: center;">
             <p style="color: #999; margin: 0; font-size: 12px;">
-              © 2024 SmartClass. All rights reserved.
+              © 2026 SmartClass. All rights reserved.
             </p>
           </div>
         </div>
@@ -346,7 +346,7 @@ class EmailService {
           
           <div style="background: #333; padding: 20px; text-align: center;">
             <p style="color: #999; margin: 0; font-size: 12px;">
-              © 2024 SmartClass. All rights reserved.
+              © 2026 SmartClass. All rights reserved.
             </p>
           </div>
         </div>
