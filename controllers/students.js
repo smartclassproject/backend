@@ -1,5 +1,7 @@
 const Student = require('../models/Student');
 const Major = require('../models/Major');
+const Course = require('../models/Course');
+const CourseSchedule = require('../models/CourseSchedule');
 const PDFDocument = require('pdfkit');
 const {sendError, sendResponse} = require('../utils/response');
 
@@ -506,7 +508,7 @@ exports.getStudentsBySchool = async (req, res) => {
   }
 };
 
-// GET /api/students/my-school/students - Get students in current user's school (School Admin Only)
+// GET /api/students/my-school/students - Get students in current user's school (School Admin or Teacher)
 exports.getMySchoolStudents = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
@@ -520,6 +522,23 @@ exports.getMySchoolStudents = async (req, res) => {
     // Build query for current user's school
     const query = { schoolId: req.user.schoolId };
 
+    // Teacher: only students in majors that match the teacher's assigned courses
+    if (req.user.role === 'teacher' && req.user.teacherId) {
+      const assignedCourseIds = await CourseSchedule.distinct('courseId', {
+        teacherId: req.user.teacherId
+      });
+      const majorIds = await Course.distinct('majorId', { _id: { $in: assignedCourseIds } });
+      if (majorIds.length === 0) {
+        // Teacher has no assigned courses → no majors → return no students
+        return sendResponse(res, 200, {
+          message: 'School students retrieved successfully',
+          data: [],
+          pagination: { page, limit, total: 0, pages: 0 }
+        });
+      }
+      query.majorId = { $in: majorIds };
+    }
+
     // Add search filter
     if (search) {
       query.$or = [
@@ -528,9 +547,11 @@ exports.getMySchoolStudents = async (req, res) => {
       ];
     }
 
-    // Add major filter
+    // Add major filter (from query param; for school_admin or further filter for teacher)
     if (majorId) {
-      query.majorId = majorId;
+      query.majorId = req.user.role === 'teacher' && query.majorId?.$in
+        ? { $in: query.majorId.$in.filter(id => id.toString() === majorId) }
+        : majorId;
     }
 
     // Add class filter
@@ -557,12 +578,12 @@ exports.getMySchoolStudents = async (req, res) => {
       Student.countDocuments(query)
     ]);
 
-    return sendResponse(res, 200, { 
-      message: 'School students retrieved successfully', 
-      data: students, 
-      pagination: { page, limit, total, pages: Math.ceil(total / limit) } 
+    return sendResponse(res, 200, {
+      message: 'School students retrieved successfully',
+      data: students,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
     });
   } catch (error) {
     return sendError(res, 500, 'Internal server error');
   }
-}; 
+};

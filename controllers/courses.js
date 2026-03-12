@@ -1,5 +1,6 @@
 const Course = require('../models/Course');
 const Major = require('../models/Major');
+const CourseSchedule = require('../models/CourseSchedule');
 const {sendResponse, sendError, isValidObjectId } = require('../utils/response');
 
 // GET /api/courses - Get all courses with pagination and search
@@ -17,6 +18,15 @@ exports.getAllCourses = async (req, res, next) => {
     // School admin can only see their school's courses
     if (req.user.role === 'school_admin') {
       query.schoolId = req.user.schoolId;
+    }
+
+    // Teacher sees only courses assigned to them (via CourseSchedule) in their school
+    if (req.user.role === 'teacher' && req.user.teacherId) {
+      query.schoolId = req.user.schoolId;
+      const assignedCourseIds = await CourseSchedule.distinct('courseId', {
+        teacherId: req.user.teacherId
+      });
+      query._id = { $in: assignedCourseIds };
     }
 
     // Add search filter

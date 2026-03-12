@@ -17,15 +17,14 @@ router.get('/:id',
   lessonController.getLessonById
 );
 
-// POST /api/lessons - Create new lesson (teachers and school admins)
+// POST /api/lessons - Create new lesson (teachers and school admins; scheduleId optional for chapters)
 router.post('/',
   authenticateToken,
   authorizeRoles('teacher', 'school_admin', 'super_admin'),
   [
     body('courseId').notEmpty().withMessage('Course ID is required')
       .isMongoId().withMessage('Invalid course ID'),
-    body('scheduleId').notEmpty().withMessage('Schedule ID is required')
-      .isMongoId().withMessage('Invalid schedule ID'),
+    body('scheduleId').optional().isMongoId().withMessage('Invalid schedule ID'),
     body('title').notEmpty().withMessage('Title is required')
       .isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
     body('lessonDate').notEmpty().withMessage('Lesson date is required')

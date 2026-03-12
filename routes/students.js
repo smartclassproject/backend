@@ -256,7 +256,7 @@ router.get('/school/:schoolId/students', authorizeRoles('admin'), studentControl
  *       500:
  *         description: Internal server error
  */
-router.get('/students', authorizeRoles('school_admin'), studentController.getMySchoolStudents);
+router.get('/students', authorizeRoles('school_admin', 'teacher'), studentController.getMySchoolStudents);
 
 
 

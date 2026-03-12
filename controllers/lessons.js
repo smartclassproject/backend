@@ -82,7 +82,7 @@ exports.getLessonById = async (req, res) => {
   }
 };
 
-// POST /api/lessons - Create new lesson
+// POST /api/lessons - Create new lesson (schedule optional for chapter-style lessons)
 exports.createLesson = async (req, res) => {
   try {
     const {
@@ -101,16 +101,6 @@ exports.createLesson = async (req, res) => {
       return sendError(res, 404, 'Course not found');
     }
 
-    // Verify schedule exists and belongs to the course
-    const schedule = await CourseSchedule.findById(scheduleId);
-    if (!schedule) {
-      return sendError(res, 404, 'Schedule not found');
-    }
-
-    if (schedule.courseId.toString() !== courseId) {
-      return sendError(res, 400, 'Schedule does not belong to the specified course');
-    }
-
     // Get teacher ID based on user role
     let teacherId;
     if (req.user.role === 'teacher' || req.user.userType === 'teacher') {
@@ -118,12 +108,22 @@ exports.createLesson = async (req, res) => {
     } else if (req.body.teacherId) {
       teacherId = req.body.teacherId;
     } else {
-      teacherId = schedule.teacherId;
+      return sendError(res, 400, 'Teacher ID is required for school/super admin');
     }
 
-    // Verify teacher is assigned to the schedule
-    if (schedule.teacherId.toString() !== teacherId.toString()) {
-      return sendError(res, 403, 'You are not assigned to this schedule');
+    let resolvedScheduleId = null;
+    if (scheduleId) {
+      const schedule = await CourseSchedule.findById(scheduleId);
+      if (!schedule) {
+        return sendError(res, 404, 'Schedule not found');
+      }
+      if (schedule.courseId.toString() !== courseId) {
+        return sendError(res, 400, 'Schedule does not belong to the specified course');
+      }
+      if (schedule.teacherId.toString() !== teacherId.toString()) {
+        return sendError(res, 403, 'You are not assigned to this schedule');
+      }
+      resolvedScheduleId = scheduleId;
     }
 
     // Check access permissions
@@ -134,7 +134,7 @@ exports.createLesson = async (req, res) => {
     const lesson = new Lesson({
       schoolId: course.schoolId,
       courseId,
-      scheduleId,
+      scheduleId: resolvedScheduleId,
       teacherId,
       title,
       description,

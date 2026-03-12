@@ -110,7 +110,7 @@ const lessonSchema = new mongoose.Schema({
   scheduleId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'CourseSchedule',
-    required: [true, 'Schedule ID is required']
+    required: false
   },
   teacherId: {
     type: mongoose.Schema.Types.ObjectId,

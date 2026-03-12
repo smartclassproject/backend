@@ -407,11 +407,11 @@ exports.setupPassword = async (req, res, next) => {
       return sendError(res, 400, 'Invalid or expired token');
     }
 
-    // Determine user type and get user
+    // Determine user type/model and get user
     let user;
-    let userType = passwordToken.userType || 'AdminUser';
+    const userModel = passwordToken.userModel || 'AdminUser';
     
-    if (userType === 'TeacherUser') {
+    if (userModel === 'TeacherUser') {
       user = await TeacherUser.findById(passwordToken.userId);
       if (!user) {
         return sendError(res, 404, 'Teacher user not found');
@@ -424,10 +424,8 @@ exports.setupPassword = async (req, res, next) => {
     }
 
     if (isReset) {
-      // Password reset flow
-      if (!user.passwordSetup) {
-        return sendError(res, 400, 'Please complete your initial password setup first');
-      }
+      // Password reset flow. If user never set a password, allow setting it (e.g. teacher using reset link for first time).
+      // No restriction here; we set password and passwordSetup below.
     } else {
       // Initial password setup flow
       if (user.passwordSetup) {
@@ -452,7 +450,7 @@ exports.setupPassword = async (req, res, next) => {
     let jwtPayload = {};
     let userProfile = {};
     
-    if (userType === 'TeacherUser') {
+    if (userModel === 'TeacherUser') {
       const teacher = await Teacher.findById(user.teacherId);
       if (!teacher || !teacher.isActive) {
         return sendError(res, 403, 'Teacher account is not active');
