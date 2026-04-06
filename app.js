@@ -55,7 +55,7 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // Default allowed origins for development
+    // Default local origins (useful when API is hosted and frontend runs locally)
     const allowedOrigins = new Set([
       'http://localhost:5173',
       'http://127.0.0.1:5173',
@@ -64,13 +64,20 @@ const corsOptions = {
       'http://localhost:8080',
     ]);
 
-    // Add production frontend URLs from environment variables (comma-separated list supported)
-    const envFrontendUrls = (process.env.FRONTEND_URLS || process.env.FRONTEND_URL || '').split(',').map(s => s.trim()).filter(Boolean);
+    // Add frontend URLs from environment variables (comma-separated list supported)
+    // Preferred: CORS_ALLOWED_ORIGINS. Backward-compatible: FRONTEND_URLS / FRONTEND_URL.
+    const envFrontendUrls = (
+      process.env.CORS_ALLOWED_ORIGINS ||
+      process.env.FRONTEND_URLS ||
+      process.env.FRONTEND_URL ||
+      ''
+    ).split(',').map(s => s.trim()).filter(Boolean);
     envFrontendUrls.forEach(u => allowedOrigins.add(u));
 
     // Support simple domain patterns from env var FRONTEND_URL_PATTERNS (comma-separated), e.g. ".example.com" or "example.com"
     const frontendPatterns = (process.env.FRONTEND_URL_PATTERNS || '').split(',').map(s => s.trim()).filter(Boolean);
 
+    const isLocalhostOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
     const originAllowedDirect = allowedOrigins.has(origin);
     const originAllowedByPattern = frontendPatterns.some(p => {
       if (!p) return false;
@@ -78,7 +85,7 @@ const corsOptions = {
       return origin.endsWith(p);
     });
 
-    if (originAllowedDirect || originAllowedByPattern) {
+    if (isLocalhostOrigin || originAllowedDirect || originAllowedByPattern) {
       return callback(null, true);
     }
 
@@ -90,6 +97,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({
