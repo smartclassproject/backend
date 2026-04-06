@@ -651,3 +651,8 @@ exports.teacherSetPassword = async (req, res, next) => {
     sendError(res, 500, 'Error setting password', error);
   }
 }; 
+
+const studentParentAuth = require('./studentParentAuth');
+exports.studentLogin = studentParentAuth.studentLogin;
+exports.parentLogin = studentParentAuth.parentLogin;
+exports.completeFirstLogin = studentParentAuth.completeFirstLogin;

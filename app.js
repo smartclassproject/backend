@@ -24,6 +24,11 @@ const lessonRoutes = require('./routes/lessons');
 const materialRoutes = require('./routes/materials');
 const reportCardRoutes = require('./routes/reportCards');
 const classRoutes = require('./routes/classes');
+const feeRoutes = require('./routes/fees');
+const announcementRoutes = require('./routes/announcements');
+const inquiryRoutes = require('./routes/inquiries');
+const studentAppRoutes = require('./routes/studentApp');
+const parentAppRoutes = require('./routes/parentApp');
 
 // Import middleware
 const { errorHandler } = require('./middlewares/errorHandler');
@@ -130,6 +135,11 @@ app.use('/api/lessons', authenticateToken, lessonRoutes);
 app.use('/api/materials', authenticateToken, materialRoutes);
 app.use('/api/report-cards', authenticateToken, reportCardRoutes);
 app.use('/api/classes', authenticateToken, classRoutes);
+app.use('/api/fees', authenticateToken, feeRoutes);
+app.use('/api/announcements', authenticateToken, announcementRoutes);
+app.use('/api/inquiries', authenticateToken, inquiryRoutes);
+app.use('/api/student-app', authenticateToken, studentAppRoutes);
+app.use('/api/parent-app', authenticateToken, parentAppRoutes);
 
 // Swagger documentation
 const swaggerJsdoc = require('swagger-jsdoc');

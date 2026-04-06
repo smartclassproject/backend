@@ -137,6 +137,21 @@ const studentSchema = new mongoose.Schema({
     trim: true,
     maxlength: [20, 'Phone number cannot exceed 20 characters']
   },
+  parentFirstName: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Parent first name cannot exceed 100 characters']
+  },
+  parentLastName: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Parent last name cannot exceed 100 characters']
+  },
+  parentPhoneNumber: {
+    type: String,
+    trim: true,
+    maxlength: [20, 'Parent phone number cannot exceed 20 characters']
+  },
   profileUrl: {
     type: String,
     trim: true,
@@ -200,6 +215,7 @@ studentSchema.index({ cardId: 1 });
 studentSchema.index({ name: 1 });
 studentSchema.index({ class: 1 });
 studentSchema.index({ enrollmentYear: 1 });
+studentSchema.index({ parentPhoneNumber: 1 });
 studentSchema.index({ class: 1 });
 studentSchema.index({ isActive: 1 });
 

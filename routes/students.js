@@ -360,7 +360,10 @@ router.post('/students', authorizeRoles('school_admin'),
       .isDate().withMessage('Invalid date of birth'),
     body('enrollmentYear').optional().isInt({ min: 2000, max: 2100 }).withMessage('Enrollment year must be 2000-2100'),
     body('email').optional().isEmail().withMessage('Please enter a valid email'),
-    body('phone').optional().isLength({ max: 20 }).withMessage('Phone number cannot exceed 20 characters')
+    body('phone').optional().isLength({ max: 20 }).withMessage('Phone number cannot exceed 20 characters'),
+    body('parentFirstName').optional().isLength({ max: 100 }).withMessage('Parent first name cannot exceed 100 characters'),
+    body('parentLastName').optional().isLength({ max: 100 }).withMessage('Parent last name cannot exceed 100 characters'),
+    body('parentPhoneNumber').optional().isLength({ max: 20 }).withMessage('Parent phone number cannot exceed 20 characters')
   ],
   validateRequest,
   studentController.createStudent
@@ -452,7 +455,10 @@ router.put('/students/:id',
     body('dateOfBirth').optional().isDate().withMessage('Invalid date of birth'),
     body('enrollmentYear').optional().isInt({ min: 2000, max: 2100 }).withMessage('Enrollment year must be 2000-2100'),
     body('email').optional().isEmail().withMessage('Please enter a valid email'),
-    body('phone').optional().isLength({ max: 20 }).withMessage('Phone number cannot exceed 20 characters')
+    body('phone').optional().isLength({ max: 20 }).withMessage('Phone number cannot exceed 20 characters'),
+    body('parentFirstName').optional().isLength({ max: 100 }).withMessage('Parent first name cannot exceed 100 characters'),
+    body('parentLastName').optional().isLength({ max: 100 }).withMessage('Parent last name cannot exceed 100 characters'),
+    body('parentPhoneNumber').optional().isLength({ max: 20 }).withMessage('Parent phone number cannot exceed 20 characters')
   ],
   validateRequest,
   studentController.updateStudent

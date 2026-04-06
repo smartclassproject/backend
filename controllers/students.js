@@ -4,7 +4,39 @@ const Class = require('../models/Class');
 const Course = require('../models/Course');
 const CourseSchedule = require('../models/CourseSchedule');
 const PDFDocument = require('pdfkit');
+const StudentUser = require('../models/StudentUser');
+const ParentUser = require('../models/ParentUser');
 const {sendError, sendResponse} = require('../utils/response');
+
+const upsertStudentAndParentAccounts = async (studentDoc) => {
+  await StudentUser.findOneAndUpdate(
+    { studentIdRef: studentDoc._id },
+    {
+      schoolId: studentDoc.schoolId,
+      studentIdRef: studentDoc._id,
+      studentId: studentDoc.studentId,
+      isActive: !!studentDoc.isActive
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  if (studentDoc.parentFirstName && studentDoc.parentFirstName.trim()) {
+    await ParentUser.findOneAndUpdate(
+      { studentIdRef: studentDoc._id, firstName: studentDoc.parentFirstName.trim() },
+      {
+        schoolId: studentDoc.schoolId,
+        studentIdRef: studentDoc._id,
+        studentId: studentDoc.studentId,
+        firstName: studentDoc.parentFirstName.trim(),
+        lastName: studentDoc.parentLastName || '',
+        phoneNumber: studentDoc.parentPhoneNumber || '',
+        isActive: !!studentDoc.isActive
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+  }
+};
+
 
 // GET /api/students - Get all students with pagination, search and filters
 exports.getAllStudents = async (req, res) => {
@@ -103,6 +135,9 @@ exports.createStudent = async (req, res) => {
       dateOfBirth,
       email,
       phone,
+      parentFirstName,
+      parentLastName,
+      parentPhoneNumber,
       profileUrl,
       enrollmentYear,
       enrollmentDate
@@ -181,11 +216,15 @@ exports.createStudent = async (req, res) => {
       dateOfBirth,
       email,
       phone,
+      parentFirstName,
+      parentLastName,
+      parentPhoneNumber,
       profileUrl,
       enrollmentDate: resolvedEnrollmentDate
     });
 
     await student.save();
+    await upsertStudentAndParentAccounts(student);
 
     const populatedStudent = await Student.findById(student._id)
       .populate('majorId', 'name code')
@@ -211,6 +250,9 @@ exports.updateStudent = async (req, res) => {
       dateOfBirth,
       email,
       phone,
+      parentFirstName,
+      parentLastName,
+      parentPhoneNumber,
       profileUrl,
       isActive,
       enrollmentDate,
@@ -288,11 +330,15 @@ exports.updateStudent = async (req, res) => {
     if (dateOfBirth) student.dateOfBirth = dateOfBirth;
     if (email !== undefined) student.email = email;
     if (phone !== undefined) student.phone = phone;
+    if (parentFirstName !== undefined) student.parentFirstName = parentFirstName;
+    if (parentLastName !== undefined) student.parentLastName = parentLastName;
+    if (parentPhoneNumber !== undefined) student.parentPhoneNumber = parentPhoneNumber;
     if (profileUrl !== undefined) student.profileUrl = profileUrl;
     if (isActive !== undefined) student.isActive = isActive;
     if (enrollmentDate !== undefined) student.enrollmentDate = new Date(enrollmentDate);
     
     await student.save();
+    await upsertStudentAndParentAccounts(student);
 
     const updatedStudent = await Student.findById(student._id)
       .populate('majorId', 'name code')

@@ -338,4 +338,36 @@ router.post('/teacher/set-password',
   authController.teacherSetPassword
 );
 
+
+// Student app authentication
+router.post('/student/login',
+  [
+    body('studentId').notEmpty().withMessage('Student ID is required'),
+    body('password').notEmpty().withMessage('Password is required')
+  ],
+  validateRequest,
+  authController.studentLogin
+);
+
+// Parent app authentication
+router.post('/parent/login',
+  [
+    body('studentId').notEmpty().withMessage('Student ID is required'),
+    body('password').notEmpty().withMessage('Password is required')
+  ],
+  validateRequest,
+  authController.parentLogin
+);
+
+// Complete first login (student/parent)
+router.post('/complete-first-login',
+  [
+    body('role').isIn(['student', 'parent']).withMessage('Role must be student or parent'),
+    body('userId').notEmpty().withMessage('userId is required'),
+    body('newPassword').isLength({ min: 4 }).withMessage('New password must be at least 4 characters')
+  ],
+  validateRequest,
+  authController.completeFirstLogin
+);
+
 module.exports = router; 

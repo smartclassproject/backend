@@ -2,6 +2,8 @@ const jwt = require('jsonwebtoken');
 const AdminUser = require('../models/AdminUser');
 const TeacherUser = require('../models/TeacherUser');
 const Teacher = require('../models/Teacher');
+const StudentUser = require('../models/StudentUser');
+const ParentUser = require('../models/ParentUser');
 
 /**
  * Authentication middleware to verify JWT token
@@ -27,15 +29,25 @@ const authenticateToken = async (req, res, next) => {
       if (user) {
         const teacher = await Teacher.findById(decoded.teacherId || user.teacherId);
         if (!teacher || !teacher.isActive) {
-          return res.status(401).json({
-            success: false,
-            message: 'Teacher account is not active'
-          });
+          return res.status(401).json({ success: false, message: 'Teacher account is not active' });
         }
-        // Add teacher info to user object
         user.teacherId = teacher._id;
         user.schoolId = teacher.schoolId;
         user.name = teacher.name;
+      }
+    } else if (decoded.userType === 'student' || decoded.role === 'student') {
+      user = await StudentUser.findById(decoded.userId).select('-password');
+      if (user) {
+        user.role = 'student';
+        user.userType = 'student';
+        user.studentId = decoded.studentId || user.studentIdRef;
+      }
+    } else if (decoded.userType === 'parent' || decoded.role === 'parent') {
+      user = await ParentUser.findById(decoded.userId).select('-password');
+      if (user) {
+        user.role = 'parent';
+        user.userType = 'parent';
+        user.studentId = decoded.studentId || user.studentIdRef;
       }
     } else {
       user = await AdminUser.findById(decoded.userId).select('-password');
@@ -56,10 +68,10 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Add decoded token info to user object for easier access
-    user.userType = decoded.userType || (decoded.role === 'teacher' ? 'teacher' : 'admin');
-    if (decoded.teacherId) {
-      user.teacherId = decoded.teacherId;
-    }
+    user.userType = decoded.userType || (decoded.role === 'teacher' ? 'teacher' : decoded.role === 'student' ? 'student' : decoded.role === 'parent' ? 'parent' : 'admin');
+    if (decoded.teacherId) user.teacherId = decoded.teacherId;
+    if (decoded.studentId) user.studentId = decoded.studentId;
+    if (!user.role && decoded.role) user.role = decoded.role;
 
     // Add user to request object
     req.user = user;
