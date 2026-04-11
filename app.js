@@ -37,8 +37,24 @@ const { authenticateToken } = require('./middlewares/auth');
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Helmet defaults include CSP `upgrade-insecure-requests`, which makes browsers load
+// ./swagger-ui.css etc. as https:// on plain http:// hosts — ERR_SSL_PROTOCOL_ERROR on :5000.
+// Relax those headers unless this deployment is advertised as HTTPS (TLS at proxy or app).
+const helmetAssumeHttpsSite =
+  process.env.HELMET_ASSUME_HTTPS_SITE === 'true' ||
+  (process.env.PUBLIC_API_BASE_URL || '').trim().startsWith('https:');
+
+const helmetOptions = {
+  contentSecurityPolicy: {
+    directives: helmetAssumeHttpsSite ? {} : { upgradeInsecureRequests: null },
+  },
+};
+if (!helmetAssumeHttpsSite) {
+  helmetOptions.crossOriginOpenerPolicy = false;
+  helmetOptions.originAgentCluster = false;
+}
+
+app.use(helmet(helmetOptions));
 // CORS configuration
 let corsAllowAllWarningLogged = false;
 const corsOptions = {
@@ -166,8 +182,12 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: `http://localhost:${process.env.PORT || 5000}`,
-        description: 'Development server',
+        url:
+          (process.env.SWAGGER_SERVER_URL || '').trim() ||
+          `http://localhost:${process.env.PORT || 5000}`,
+        description: process.env.SWAGGER_SERVER_URL
+          ? 'From SWAGGER_SERVER_URL'
+          : 'Default (set SWAGGER_SERVER_URL on the server, e.g. http://41.186.188.119:5000)',
       },
     ],
     components: {
