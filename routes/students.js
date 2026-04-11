@@ -268,12 +268,15 @@ router.get('/school/:schoolId/students', authorizeRoles('admin'), studentControl
  */
 router.get('/students', authorizeRoles('school_admin', 'teacher'), studentController.getMySchoolStudents);
 
-router.post(
-  '/students/profile-photo',
+const studentProfilePhotoHandlers = [
   authorizeRoles('school_admin'),
   studentPhotoUpload,
   studentController.uploadStudentPhoto
-);
+];
+/** Legacy path (double "students") — keep for old clients. */
+router.post('/students/profile-photo', ...studentProfilePhotoHandlers);
+/** Preferred path: POST /api/students/profile-photo (works better behind some reverse proxies). */
+router.post('/profile-photo', ...studentProfilePhotoHandlers);
 
 /**
  * @swagger
