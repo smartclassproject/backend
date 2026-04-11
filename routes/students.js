@@ -363,8 +363,7 @@ router.post('/students', authorizeRoles('school_admin'),
     body('name').notEmpty().withMessage('Student name is required')
       .isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
     body('studentId').optional().isLength({ max: 32 }).withMessage('Student ID cannot exceed 32 characters'),
-    body('cardId').notEmpty().withMessage('RFID card ID is required')
-      .isLength({ max: 50 }).withMessage('Card ID cannot exceed 50 characters'),
+    body('cardId').optional({ checkFalsy: true }).isLength({ max: 50 }).withMessage('Card ID cannot exceed 50 characters'),
     body('majorId').notEmpty().withMessage('Major ID is required')
       .isMongoId().withMessage('Invalid major ID'),
     body('classId').notEmpty().withMessage('Class is required')

@@ -88,7 +88,7 @@ const studentSchema = new mongoose.Schema({
   },
   cardId: {
     type: String,
-    required: [true, 'RFID card ID is required'],
+    required: false,
     trim: true,
     maxlength: [50, 'Card ID cannot exceed 50 characters']
   },

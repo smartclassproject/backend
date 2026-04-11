@@ -192,10 +192,12 @@ exports.createStudent = async (req, res) => {
       return sendError(res, 400, 'Class is required (select a class or provide class name)');
     }
 
-    // Check if RFID card ID already exists
-    const existingCardId = await Student.findOne({ cardId });
-    if (existingCardId) {
-      return sendError(res, 409, 'RFID card ID already exists');
+    const resolvedCardId = cardId != null && String(cardId).trim() ? String(cardId).trim() : undefined;
+    if (resolvedCardId) {
+      const existingCardId = await Student.findOne({ cardId: resolvedCardId });
+      if (existingCardId) {
+        return sendError(res, 409, 'RFID card ID already exists');
+      }
     }
 
     // Verify major exists and belongs to the school
@@ -251,7 +253,7 @@ exports.createStudent = async (req, res) => {
       schoolId,
       name,
       studentId: finalStudentId,
-      cardId,
+      cardId: resolvedCardId,
       majorId,
       classId: resolvedClassId,
       class: resolvedClass,
@@ -315,14 +317,20 @@ exports.updateStudent = async (req, res) => {
 
     // Student ID is immutable after creation
 
-    // Check if RFID card ID is being changed and conflicts with existing
-    if (cardId && cardId !== student.cardId) {
-      const existingCardId = await Student.findOne({ 
-        cardId,
-        _id: { $ne: student._id }
-      });
-      if (existingCardId) {
-        return sendError(res, 409, 'RFID card ID already exists');
+    let nextCardId;
+    if (cardId !== undefined) {
+      nextCardId =
+        cardId === null || cardId === ''
+          ? undefined
+          : String(cardId).trim() || undefined;
+      if (nextCardId && nextCardId !== (student.cardId || '')) {
+        const existingCardId = await Student.findOne({
+          cardId: nextCardId,
+          _id: { $ne: student._id }
+        });
+        if (existingCardId) {
+          return sendError(res, 409, 'RFID card ID already exists');
+        }
       }
     }
 
@@ -383,7 +391,9 @@ exports.updateStudent = async (req, res) => {
 
     // Update fields
     if (name) student.name = name;
-    if (cardId) student.cardId = cardId;
+    if (cardId !== undefined) {
+      student.cardId = nextCardId;
+    }
     if (majorId) student.majorId = majorId;
     if (dateOfBirth) student.dateOfBirth = dateOfBirth;
     if (email !== undefined) {
