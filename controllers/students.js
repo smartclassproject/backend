@@ -9,6 +9,7 @@ const PDFDocument = require('pdfkit');
 const StudentUser = require('../models/StudentUser');
 const ParentUser = require('../models/ParentUser');
 const {sendError, sendResponse} = require('../utils/response');
+const { seasonsEnabledForSchoolDoc, ENROLLMENT_SEASONS } = require('../utils/schoolEnrollment');
 
 /** POST /api/students/students/profile-photo */
 exports.uploadStudentPhoto = async (req, res) => {
@@ -158,6 +159,9 @@ exports.createStudent = async (req, res) => {
       enrollmentDate,
       gender,
       semester,
+      entryTerm,
+      enrollmentSeason,
+      enrollmentCohortYear,
       academicYear,
       isActive
     } = req.body;
@@ -240,13 +244,37 @@ exports.createStudent = async (req, res) => {
       resolvedEnrollmentDate = new Date(yearForEnrollment, 0, 1);
     }
 
-    let semesterNum;
-    if (semester !== undefined && semester !== '') {
-      semesterNum = parseInt(semester, 10);
-      const maxTerm = schoolDoc.numberOfTerms || 6;
-      if (isNaN(semesterNum) || semesterNum < 1 || semesterNum > maxTerm) {
-        return sendError(res, 400, `Semester must be between 1 and ${maxTerm}`);
+    const maxTerm = Math.min(Math.max(schoolDoc.numberOfTerms || 3, 1), 6);
+    const rawTerm = entryTerm !== undefined && entryTerm !== '' ? entryTerm : semester;
+    let entryTermNum;
+    if (rawTerm !== undefined && rawTerm !== '' && rawTerm !== null) {
+      entryTermNum = parseInt(rawTerm, 10);
+      if (isNaN(entryTermNum) || entryTermNum < 1 || entryTermNum > maxTerm) {
+        return sendError(res, 400, `Term must be between 1 and ${maxTerm}`);
       }
+    } else {
+      entryTermNum = 1;
+    }
+
+    const enabledSeasons = seasonsEnabledForSchoolDoc(schoolDoc);
+    const seasonRaw =
+      enrollmentSeason != null && String(enrollmentSeason).trim()
+        ? String(enrollmentSeason).toLowerCase()
+        : '';
+    if (!seasonRaw || !enabledSeasons.includes(seasonRaw)) {
+      return sendError(
+        res,
+        400,
+        `Enrollment semester is required and must be one of: ${enabledSeasons.join(', ')}`
+      );
+    }
+
+    let cohort = enrollmentCohortYear !== undefined && enrollmentCohortYear !== '' ? parseInt(enrollmentCohortYear, 10) : NaN;
+    if (isNaN(cohort) || cohort < 2000 || cohort > 2100) {
+      cohort = (!isNaN(ay) && ay >= 2000 && ay <= 2100) ? ay : ((!isNaN(ey) && ey >= 2000 && ey <= 2100) ? ey : NaN);
+    }
+    if (isNaN(cohort) || cohort < 2000 || cohort > 2100) {
+      return sendError(res, 400, 'Enrollment cohort year is required (2000–2100), or send academicYear / enrollmentYear');
     }
 
     const student = new Student({
@@ -259,7 +287,9 @@ exports.createStudent = async (req, res) => {
       class: resolvedClass,
       enrollmentYear: yearForEnrollment || undefined,
       academicYear: (!isNaN(ay) && ay >= 2000 && ay <= 2100) ? ay : (yearForEnrollment || undefined),
-      semester: semesterNum,
+      enrollmentSeason: seasonRaw,
+      enrollmentCohortYear: cohort,
+      entryTerm: entryTermNum,
       gender: gender || undefined,
       dateOfBirth,
       email: email && String(email).trim() ? String(email).trim().toLowerCase() : undefined,
@@ -307,6 +337,9 @@ exports.updateStudent = async (req, res) => {
       enrollmentYear,
       gender,
       semester,
+      entryTerm,
+      enrollmentSeason,
+      enrollmentCohortYear,
       academicYear
     } = req.body;
 
@@ -377,12 +410,46 @@ exports.updateStudent = async (req, res) => {
       }
     }
 
-    if (semester !== undefined) {
-      const schoolDoc = await School.findById(student.schoolId);
-      const maxTerm = schoolDoc?.numberOfTerms || 6;
-      const s = parseInt(semester, 10);
-      if (!isNaN(s) && s >= 1 && s <= maxTerm) student.semester = s;
-      else if (semester === null || semester === '') student.semester = undefined;
+    let schoolDoc = null;
+    const loadSchool = async () => {
+      if (!schoolDoc) schoolDoc = await School.findById(student.schoolId);
+      return schoolDoc;
+    };
+
+    const rawTermUpdate = entryTerm !== undefined ? entryTerm : semester;
+    if (rawTermUpdate !== undefined) {
+      const sDoc = await loadSchool();
+      const maxTerm = Math.min(Math.max(sDoc?.numberOfTerms || 3, 1), 6);
+      const s = parseInt(rawTermUpdate, 10);
+      if (!isNaN(s) && s >= 1 && s <= maxTerm) student.entryTerm = s;
+      else if (rawTermUpdate === null || rawTermUpdate === '') student.entryTerm = undefined;
+    }
+
+    if (enrollmentSeason !== undefined) {
+      if (enrollmentSeason === null || enrollmentSeason === '') {
+        student.enrollmentSeason = undefined;
+      } else {
+        const season = String(enrollmentSeason).toLowerCase();
+        if (!ENROLLMENT_SEASONS.includes(season)) {
+          return sendError(res, 400, 'Invalid enrollment semester');
+        }
+        const sDoc = await loadSchool();
+        const enabled = seasonsEnabledForSchoolDoc(sDoc || {});
+        if (!enabled.includes(season)) {
+          return sendError(res, 400, `Enrollment semester must be one of: ${enabled.join(', ')}`);
+        }
+        student.enrollmentSeason = season;
+      }
+    }
+
+    if (enrollmentCohortYear !== undefined) {
+      if (enrollmentCohortYear === null || enrollmentCohortYear === '') {
+        student.enrollmentCohortYear = undefined;
+      } else {
+        const y = parseInt(enrollmentCohortYear, 10);
+        if (!isNaN(y) && y >= 2000 && y <= 2100) student.enrollmentCohortYear = y;
+        else return sendError(res, 400, 'Enrollment cohort year must be 2000–2100');
+      }
     }
 
     if (gender !== undefined) {

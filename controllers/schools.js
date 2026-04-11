@@ -1,5 +1,10 @@
 const School = require('../models/School');
 const { sendResponse, sendError } = require('../utils/response');
+const {
+  normalizeEnrollmentSemestersEnabled,
+  seasonsEnabledForSchoolDoc,
+  ENROLLMENT_SEASONS
+} = require('../utils/schoolEnrollment');
 
 // GET /api/schools - Get all schools with pagination and search
 exports.getAllSchools = async (req, res, next) => {
@@ -93,7 +98,14 @@ exports.updateMySchool = async (req, res, next) => {
     if (!req.user.schoolId) {
       return sendError(res, 403, 'Only school admins can update their school');
     }
-    const { name, location, numberOfTerms, shortCode } = req.body;
+    const {
+      name,
+      location,
+      numberOfTerms,
+      shortCode,
+      enrollmentSemestersEnabled,
+      defaultEnrollmentSemester
+    } = req.body;
     const school = await School.findById(req.user.schoolId);
     if (!school) {
       return sendError(res, 404, 'School not found');
@@ -104,6 +116,25 @@ exports.updateMySchool = async (req, res, next) => {
       const n = parseInt(numberOfTerms, 10);
       if (isNaN(n) || n < 1 || n > 6) return sendError(res, 400, 'Number of terms must be between 1 and 6');
       school.numberOfTerms = n;
+    }
+    if (enrollmentSemestersEnabled !== undefined) {
+      const cleaned = normalizeEnrollmentSemestersEnabled(enrollmentSemestersEnabled);
+      if (cleaned.length < 1) {
+        return sendError(res, 400, 'At least one enrollment semester must be enabled');
+      }
+      school.enrollmentSemestersEnabled = cleaned;
+    }
+    if (defaultEnrollmentSemester !== undefined) {
+      const raw = defaultEnrollmentSemester;
+      if (raw === null || raw === '') {
+        school.defaultEnrollmentSemester = undefined;
+      } else {
+        const d = String(raw).toLowerCase();
+        if (!ENROLLMENT_SEASONS.includes(d)) {
+          return sendError(res, 400, 'Invalid default enrollment semester');
+        }
+        school.defaultEnrollmentSemester = d;
+      }
     }
     if (shortCode !== undefined) {
       const raw = String(shortCode).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -120,6 +151,10 @@ exports.updateMySchool = async (req, res, next) => {
       } else {
         school.shortCode = undefined;
       }
+    }
+    const enabled = seasonsEnabledForSchoolDoc(school);
+    if (school.defaultEnrollmentSemester && !enabled.includes(school.defaultEnrollmentSemester)) {
+      return sendError(res, 400, 'Default enrollment semester must be one of the enabled semesters');
     }
     await school.save();
     sendResponse(res, 200, { message: 'School updated successfully', data: school });
@@ -169,7 +204,14 @@ exports.createSchool = async (req, res, next) => {
 // PUT /api/schools/:id - Update school
 exports.updateSchool = async (req, res, next) => {
   try {
-    const { name, location, numberOfTerms, shortCode } = req.body;
+    const {
+      name,
+      location,
+      numberOfTerms,
+      shortCode,
+      enrollmentSemestersEnabled,
+      defaultEnrollmentSemester
+    } = req.body;
     const schoolId = req.params.id;
 
     const school = await School.findById(schoolId);
@@ -196,6 +238,25 @@ exports.updateSchool = async (req, res, next) => {
       if (n < 1 || n > 6) return sendError(res, 400, 'Number of terms must be between 1 and 6');
       school.numberOfTerms = n;
     }
+    if (enrollmentSemestersEnabled !== undefined) {
+      const cleaned = normalizeEnrollmentSemestersEnabled(enrollmentSemestersEnabled);
+      if (cleaned.length < 1) {
+        return sendError(res, 400, 'At least one enrollment semester must be enabled');
+      }
+      school.enrollmentSemestersEnabled = cleaned;
+    }
+    if (defaultEnrollmentSemester !== undefined) {
+      const raw = defaultEnrollmentSemester;
+      if (raw === null || raw === '') {
+        school.defaultEnrollmentSemester = undefined;
+      } else {
+        const d = String(raw).toLowerCase();
+        if (!ENROLLMENT_SEASONS.includes(d)) {
+          return sendError(res, 400, 'Invalid default enrollment semester');
+        }
+        school.defaultEnrollmentSemester = d;
+      }
+    }
     if (shortCode !== undefined) {
       const raw = String(shortCode).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
       if (raw.length > 0 && (raw.length < 2 || raw.length > 6)) {
@@ -208,6 +269,11 @@ exports.updateSchool = async (req, res, next) => {
       } else {
         school.shortCode = undefined;
       }
+    }
+
+    const enabled = seasonsEnabledForSchoolDoc(school);
+    if (school.defaultEnrollmentSemester && !enabled.includes(school.defaultEnrollmentSemester)) {
+      return sendError(res, 400, 'Default enrollment semester must be one of the enabled semesters');
     }
 
     await school.save();

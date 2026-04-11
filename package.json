@@ -12,7 +12,8 @@
     "create-super-admin": "node scripts/createSuperAdmin.js",
     "setup-data": "node scripts/setupInitialData.js",
     "test-email": "node scripts/testEmail.js",
-    "test-admin-features": "node scripts/testAdminFeatures.js"
+    "test-admin-features": "node scripts/testAdminFeatures.js",
+    "migrate-student-terms": "node scripts/migrateStudentSemestersToTerms.js"
   },
   "keywords": [
     "smartclass",

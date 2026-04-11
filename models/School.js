@@ -47,6 +47,32 @@ const schoolSchema = new mongoose.Schema({
     min: [1, 'At least 1 term is required'],
     max: [6, 'Cannot exceed 6 terms']
   },
+  /** Which enrollment seasons (Fall/Spring/…) appear on student registration. School admin editable. */
+  enrollmentSemestersEnabled: {
+    type: [String],
+    default: () => ['fall', 'spring', 'summer', 'winter'],
+    validate: {
+      validator(arr) {
+        if (!Array.isArray(arr) || arr.length < 1) return false;
+        const allowed = new Set(['fall', 'spring', 'summer', 'winter']);
+        return arr.every((s) => allowed.has(String(s).toLowerCase()));
+      },
+      message: 'At least one valid season (fall, spring, summer, winter) is required'
+    }
+  },
+  /** Optional default season when opening “add student” (must be in enrollmentSemestersEnabled). */
+  defaultEnrollmentSemester: {
+    type: String,
+    trim: true,
+    lowercase: true,
+    validate: {
+      validator(v) {
+        if (v === undefined || v === null || v === '') return true;
+        return ['fall', 'spring', 'summer', 'winter'].includes(v);
+      },
+      message: 'Invalid default enrollment semester'
+    }
+  },
   /** Used in auto-generated student IDs (2–6 alphanumeric, uppercase). */
   shortCode: {
     type: String,

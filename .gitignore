@@ -9,6 +9,7 @@
 /config
 /docs
 
-
+/.github/workflows/
 .env
-.github
+.github/workflows/deploy.yaml
+/.github

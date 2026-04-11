@@ -71,7 +71,13 @@ router.put('/my-school',
     body('name').optional().isLength({ max: 100 }).withMessage('School name cannot exceed 100 characters'),
     body('location').optional().isLength({ max: 200 }).withMessage('Location cannot exceed 200 characters'),
     body('numberOfTerms').optional().isInt({ min: 1, max: 6 }).withMessage('Number of terms must be between 1 and 6'),
-    body('shortCode').optional().isLength({ max: 6 }).withMessage('Short code cannot exceed 6 characters')
+    body('shortCode').optional().isLength({ max: 6 }).withMessage('Short code cannot exceed 6 characters'),
+    body('enrollmentSemestersEnabled').optional().isArray().withMessage('enrollmentSemestersEnabled must be an array'),
+    body('enrollmentSemestersEnabled.*').optional().isIn(['fall', 'spring', 'summer', 'winter']).withMessage('Invalid season'),
+    body('defaultEnrollmentSemester').optional().custom((v) => {
+      if (v === null || v === undefined || v === '') return true;
+      return ['fall', 'spring', 'summer', 'winter'].includes(String(v).toLowerCase());
+    })
   ],
   validateRequest,
   schoolController.updateMySchool
@@ -214,7 +220,13 @@ router.put('/:id',
     body('name').optional().isLength({ max: 100 }).withMessage('School name cannot exceed 100 characters'),
     body('location').optional().isLength({ max: 200 }).withMessage('Location cannot exceed 200 characters'),
     body('numberOfTerms').optional().isInt({ min: 1, max: 6 }).withMessage('Number of terms must be between 1 and 6'),
-    body('shortCode').optional().isLength({ max: 6 }).withMessage('Short code cannot exceed 6 characters')
+    body('shortCode').optional().isLength({ max: 6 }).withMessage('Short code cannot exceed 6 characters'),
+    body('enrollmentSemestersEnabled').optional().isArray().withMessage('enrollmentSemestersEnabled must be an array'),
+    body('enrollmentSemestersEnabled.*').optional().isIn(['fall', 'spring', 'summer', 'winter']).withMessage('Invalid season'),
+    body('defaultEnrollmentSemester').optional().custom((v) => {
+      if (v === null || v === undefined || v === '') return true;
+      return ['fall', 'spring', 'summer', 'winter'].includes(String(v).toLowerCase());
+    })
   ],
   validateRequest,
   schoolController.updateSchool

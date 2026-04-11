@@ -119,11 +119,25 @@ const studentSchema = new mongoose.Schema({
     min: [2000, 'Academic year must be 2000 or later'],
     max: [2100, 'Academic year must be 2100 or earlier']
   },
-  /** Term / semester index (1..school.numberOfTerms). */
-  semester: {
+  /** Enrollment intake season (registration), e.g. Fall — not the same as grading “terms”. */
+  enrollmentSeason: {
+    type: String,
+    enum: {
+      values: ['fall', 'spring', 'summer', 'winter'],
+      message: '{VALUE} is not a valid enrollment season'
+    }
+  },
+  /** Cohort year in “Fall 2026” sense (calendar year associated with that intake). */
+  enrollmentCohortYear: {
     type: Number,
-    min: [1, 'Semester must be at least 1'],
-    max: [6, 'Semester cannot exceed 6']
+    min: [2000, 'Cohort year must be 2000 or later'],
+    max: [2100, 'Cohort year must be 2100 or earlier']
+  },
+  /** Grading term index (1..school.numberOfTerms) for exams and report cards. */
+  entryTerm: {
+    type: Number,
+    min: [1, 'Term must be at least 1'],
+    max: [6, 'Term cannot exceed 6']
   },
   gender: {
     type: String,
