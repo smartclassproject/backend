@@ -255,7 +255,6 @@ studentSchema.index({ name: 1 });
 studentSchema.index({ class: 1 });
 studentSchema.index({ enrollmentYear: 1 });
 studentSchema.index({ parentPhoneNumber: 1 });
-studentSchema.index({ class: 1 });
 studentSchema.index({ isActive: 1 });
 
 module.exports = mongoose.model('Student', studentSchema); 

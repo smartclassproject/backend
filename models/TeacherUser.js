@@ -107,8 +107,6 @@ teacherUserSchema.methods.getPublicProfile = function() {
   return userObject;
 };
 
-// Index for better query performance
-teacherUserSchema.index({ email: 1 });
-teacherUserSchema.index({ teacherId: 1 });
+// email and teacherId use unique: true on the path — no separate .index() (avoids duplicate index warnings)
 
 module.exports = mongoose.model('TeacherUser', teacherUserSchema);

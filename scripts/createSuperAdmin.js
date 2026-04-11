@@ -13,10 +13,7 @@ const SUPER_ADMIN_CREDENTIALS = {
 const createSuperAdmin = async () => {
   try {
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGODB_URI);
     console.log('✅ Connected to MongoDB Atlas');
 
     // Check if super admin already exists

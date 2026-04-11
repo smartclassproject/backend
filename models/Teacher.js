@@ -126,9 +126,8 @@ teacherSchema.virtual('activeSchedulesCount', {
   }
 });
 
-// Indexes for better query performance
+// Indexes for better query performance (email already indexed via unique: true on the path)
 teacherSchema.index({ schoolId: 1 });
-teacherSchema.index({ email: 1 });
 teacherSchema.index({ name: 1 });
 teacherSchema.index({ department: 1 });
 teacherSchema.index({ isActive: 1 });
