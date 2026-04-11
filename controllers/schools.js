@@ -93,7 +93,7 @@ exports.updateMySchool = async (req, res, next) => {
     if (!req.user.schoolId) {
       return sendError(res, 403, 'Only school admins can update their school');
     }
-    const { name, location, numberOfTerms } = req.body;
+    const { name, location, numberOfTerms, shortCode } = req.body;
     const school = await School.findById(req.user.schoolId);
     if (!school) {
       return sendError(res, 404, 'School not found');
@@ -105,6 +105,22 @@ exports.updateMySchool = async (req, res, next) => {
       if (isNaN(n) || n < 1 || n > 6) return sendError(res, 400, 'Number of terms must be between 1 and 6');
       school.numberOfTerms = n;
     }
+    if (shortCode !== undefined) {
+      const raw = String(shortCode).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (raw.length > 0 && (raw.length < 2 || raw.length > 6)) {
+        return sendError(res, 400, 'School short code must be 2–6 letters or digits');
+      }
+      if (raw.length >= 2) {
+        const taken = await School.findOne({
+          shortCode: raw,
+          _id: { $ne: school._id }
+        });
+        if (taken) return sendError(res, 409, 'This short code is already used by another school');
+        school.shortCode = raw;
+      } else {
+        school.shortCode = undefined;
+      }
+    }
     await school.save();
     sendResponse(res, 200, { message: 'School updated successfully', data: school });
   } catch (error) {
@@ -115,7 +131,7 @@ exports.updateMySchool = async (req, res, next) => {
 // POST /api/schools - Create new school
 exports.createSchool = async (req, res, next) => {
   try {
-    const { name, location } = req.body;
+    const { name, location, shortCode } = req.body;
 
     // Check if school with same name already exists
     const existingSchool = await School.findOne({ name: { $regex: new RegExp(`^${name}$`, 'i') } });
@@ -123,9 +139,20 @@ exports.createSchool = async (req, res, next) => {
       return sendError(res, 409, 'School with this name already exists');
     }
 
+    let code;
+    if (shortCode !== undefined && shortCode !== null && String(shortCode).trim()) {
+      code = String(shortCode).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (code.length < 2 || code.length > 6) {
+        return sendError(res, 400, 'School short code must be 2–6 letters or digits');
+      }
+      const taken = await School.findOne({ shortCode: code });
+      if (taken) return sendError(res, 409, 'This short code is already in use');
+    }
+
     const school = new School({
       name,
-      location
+      location,
+      ...(code ? { shortCode: code } : {})
     });
 
     await school.save();
@@ -142,7 +169,7 @@ exports.createSchool = async (req, res, next) => {
 // PUT /api/schools/:id - Update school
 exports.updateSchool = async (req, res, next) => {
   try {
-    const { name, location, numberOfTerms } = req.body;
+    const { name, location, numberOfTerms, shortCode } = req.body;
     const schoolId = req.params.id;
 
     const school = await School.findById(schoolId);
@@ -168,6 +195,19 @@ exports.updateSchool = async (req, res, next) => {
       const n = parseInt(numberOfTerms, 10);
       if (n < 1 || n > 6) return sendError(res, 400, 'Number of terms must be between 1 and 6');
       school.numberOfTerms = n;
+    }
+    if (shortCode !== undefined) {
+      const raw = String(shortCode).trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+      if (raw.length > 0 && (raw.length < 2 || raw.length > 6)) {
+        return sendError(res, 400, 'School short code must be 2–6 letters or digits');
+      }
+      if (raw.length >= 2) {
+        const taken = await School.findOne({ shortCode: raw, _id: { $ne: schoolId } });
+        if (taken) return sendError(res, 409, 'This short code is already in use');
+        school.shortCode = raw;
+      } else {
+        school.shortCode = undefined;
+      }
     }
 
     await school.save();

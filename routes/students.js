@@ -5,6 +5,16 @@ const { authorizeRoles, authorizeResourceAccess } = require('../middlewares/auth
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Student = require('../models/Student');
+const { uploadStudentPhoto } = require('../middlewares/uploadStudentPhoto');
+
+const studentPhotoUpload = (req, res, next) => {
+  uploadStudentPhoto.single('photo')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message || 'Upload failed' });
+    }
+    next();
+  });
+};
 
 
 
@@ -258,7 +268,12 @@ router.get('/school/:schoolId/students', authorizeRoles('admin'), studentControl
  */
 router.get('/students', authorizeRoles('school_admin', 'teacher'), studentController.getMySchoolStudents);
 
-
+router.post(
+  '/students/profile-photo',
+  authorizeRoles('school_admin'),
+  studentPhotoUpload,
+  studentController.uploadStudentPhoto
+);
 
 /**
  * @swagger
@@ -347,8 +362,7 @@ router.post('/students', authorizeRoles('school_admin'),
   [
     body('name').notEmpty().withMessage('Student name is required')
       .isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
-    body('studentId').notEmpty().withMessage('Student ID is required')
-      .isLength({ max: 20 }).withMessage('Student ID cannot exceed 20 characters'),
+    body('studentId').optional().isLength({ max: 32 }).withMessage('Student ID cannot exceed 32 characters'),
     body('cardId').notEmpty().withMessage('RFID card ID is required')
       .isLength({ max: 50 }).withMessage('Card ID cannot exceed 50 characters'),
     body('majorId').notEmpty().withMessage('Major ID is required')
@@ -359,11 +373,16 @@ router.post('/students', authorizeRoles('school_admin'),
     body('dateOfBirth').notEmpty().withMessage('Date of birth is required')
       .isDate().withMessage('Invalid date of birth'),
     body('enrollmentYear').optional().isInt({ min: 2000, max: 2100 }).withMessage('Enrollment year must be 2000-2100'),
-    body('email').optional().isEmail().withMessage('Please enter a valid email'),
+    body('academicYear').optional().isInt({ min: 2000, max: 2100 }).withMessage('Academic year must be 2000-2100'),
+    body('semester').optional().isInt({ min: 1, max: 6 }).withMessage('Semester must be 1-6'),
+    body('gender').optional().isIn(['male', 'female', 'other', 'prefer_not_to_say']).withMessage('Invalid gender'),
+    body('isActive').optional().isBoolean().withMessage('isActive must be a boolean'),
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email'),
     body('phone').optional().isLength({ max: 20 }).withMessage('Phone number cannot exceed 20 characters'),
     body('parentFirstName').optional().isLength({ max: 100 }).withMessage('Parent first name cannot exceed 100 characters'),
     body('parentLastName').optional().isLength({ max: 100 }).withMessage('Parent last name cannot exceed 100 characters'),
-    body('parentPhoneNumber').optional().isLength({ max: 20 }).withMessage('Parent phone number cannot exceed 20 characters')
+    body('parentPhoneNumber').optional().isLength({ max: 20 }).withMessage('Parent phone number cannot exceed 20 characters'),
+    body('profileUrl').optional().isLength({ max: 500 }).withMessage('Profile URL is too long')
   ],
   validateRequest,
   studentController.createStudent
@@ -448,17 +467,22 @@ router.put('/students/:id',
   authorizeRoles('school_admin'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
-    body('studentId').optional().isLength({ max: 20 }).withMessage('Student ID cannot exceed 20 characters'),
     body('cardId').optional().isLength({ max: 50 }).withMessage('Card ID cannot exceed 50 characters'),
+    body('majorId').optional().isMongoId().withMessage('Invalid major ID'),
     body('classId').optional().isMongoId().withMessage('Invalid class ID'),
     body('class').optional().isLength({ max: 50 }).withMessage('Class cannot exceed 50 characters'),
     body('dateOfBirth').optional().isDate().withMessage('Invalid date of birth'),
     body('enrollmentYear').optional().isInt({ min: 2000, max: 2100 }).withMessage('Enrollment year must be 2000-2100'),
-    body('email').optional().isEmail().withMessage('Please enter a valid email'),
+    body('academicYear').optional().isInt({ min: 2000, max: 2100 }).withMessage('Academic year must be 2000-2100'),
+    body('semester').optional().isInt({ min: 1, max: 6 }).withMessage('Semester must be 1-6'),
+    body('gender').optional().isIn(['male', 'female', 'other', 'prefer_not_to_say']).withMessage('Invalid gender'),
+    body('isActive').optional().isBoolean().withMessage('isActive must be a boolean'),
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Please enter a valid email'),
     body('phone').optional().isLength({ max: 20 }).withMessage('Phone number cannot exceed 20 characters'),
     body('parentFirstName').optional().isLength({ max: 100 }).withMessage('Parent first name cannot exceed 100 characters'),
     body('parentLastName').optional().isLength({ max: 100 }).withMessage('Parent last name cannot exceed 100 characters'),
-    body('parentPhoneNumber').optional().isLength({ max: 20 }).withMessage('Parent phone number cannot exceed 20 characters')
+    body('parentPhoneNumber').optional().isLength({ max: 20 }).withMessage('Parent phone number cannot exceed 20 characters'),
+    body('profileUrl').optional().isLength({ max: 500 }).withMessage('Profile URL is too long')
   ],
   validateRequest,
   studentController.updateStudent

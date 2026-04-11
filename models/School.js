@@ -46,6 +46,16 @@ const schoolSchema = new mongoose.Schema({
     default: 3,
     min: [1, 'At least 1 term is required'],
     max: [6, 'Cannot exceed 6 terms']
+  },
+  /** Used in auto-generated student IDs (2–6 alphanumeric, uppercase). */
+  shortCode: {
+    type: String,
+    trim: true,
+    uppercase: true,
+    maxlength: [6, 'Short code cannot exceed 6 characters'],
+    unique: true,
+    sparse: true,
+    match: [/^[A-Z0-9]{2,6}$/, 'Short code must be 2–6 letters or digits']
   }
 }, {
   timestamps: true,

@@ -71,6 +71,10 @@ const adminUserSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  profileUrl: {
+    type: String,
+    trim: true
+  },
   role: {
     type: String,
     enum: ['super_admin', 'school_admin'],

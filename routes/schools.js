@@ -70,7 +70,8 @@ router.put('/my-school',
   [
     body('name').optional().isLength({ max: 100 }).withMessage('School name cannot exceed 100 characters'),
     body('location').optional().isLength({ max: 200 }).withMessage('Location cannot exceed 200 characters'),
-    body('numberOfTerms').optional().isInt({ min: 1, max: 6 }).withMessage('Number of terms must be between 1 and 6')
+    body('numberOfTerms').optional().isInt({ min: 1, max: 6 }).withMessage('Number of terms must be between 1 and 6'),
+    body('shortCode').optional().isLength({ max: 6 }).withMessage('Short code cannot exceed 6 characters')
   ],
   validateRequest,
   schoolController.updateMySchool
@@ -212,7 +213,8 @@ router.put('/:id',
   [
     body('name').optional().isLength({ max: 100 }).withMessage('School name cannot exceed 100 characters'),
     body('location').optional().isLength({ max: 200 }).withMessage('Location cannot exceed 200 characters'),
-    body('numberOfTerms').optional().isInt({ min: 1, max: 6 }).withMessage('Number of terms must be between 1 and 6')
+    body('numberOfTerms').optional().isInt({ min: 1, max: 6 }).withMessage('Number of terms must be between 1 and 6'),
+    body('shortCode').optional().isLength({ max: 6 }).withMessage('Short code cannot exceed 6 characters')
   ],
   validateRequest,
   schoolController.updateSchool

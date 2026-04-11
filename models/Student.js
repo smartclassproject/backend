@@ -84,7 +84,7 @@ const studentSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Student ID is required'],
     trim: true,
-    maxlength: [20, 'Student ID cannot exceed 20 characters']
+    maxlength: [32, 'Student ID cannot exceed 32 characters']
   },
   cardId: {
     type: String,
@@ -113,6 +113,25 @@ const studentSchema = new mongoose.Schema({
     min: [2000, 'Enrollment year must be 2000 or later'],
     max: [2100, 'Enrollment year must be 2100 or earlier']
   },
+  /** Academic year start (e.g. 2025 for 2025/2026). Kept in sync with enrollmentYear when set from API. */
+  academicYear: {
+    type: Number,
+    min: [2000, 'Academic year must be 2000 or later'],
+    max: [2100, 'Academic year must be 2100 or earlier']
+  },
+  /** Term / semester index (1..school.numberOfTerms). */
+  semester: {
+    type: Number,
+    min: [1, 'Semester must be at least 1'],
+    max: [6, 'Semester cannot exceed 6']
+  },
+  gender: {
+    type: String,
+    enum: {
+      values: ['male', 'female', 'other', 'prefer_not_to_say'],
+      message: '{VALUE} is not a valid gender'
+    }
+  },
   dateOfBirth: {
     type: Date,
     required: [true, 'Date of birth is required'],
@@ -130,7 +149,13 @@ const studentSchema = new mongoose.Schema({
     type: String,
     trim: true,
     lowercase: true,
-    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
+    validate: {
+      validator(v) {
+        if (!v) return true;
+        return /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/.test(v);
+      },
+      message: 'Please enter a valid email'
+    }
   },
   phone: {
     type: String,

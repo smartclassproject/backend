@@ -1,12 +1,27 @@
 const Student = require('../models/Student');
+const School = require('../models/School');
 const Major = require('../models/Major');
 const Class = require('../models/Class');
+const { generateUniqueStudentId } = require('../utils/studentIdGenerator');
 const Course = require('../models/Course');
 const CourseSchedule = require('../models/CourseSchedule');
 const PDFDocument = require('pdfkit');
 const StudentUser = require('../models/StudentUser');
 const ParentUser = require('../models/ParentUser');
 const {sendError, sendResponse} = require('../utils/response');
+
+/** POST /api/students/students/profile-photo */
+exports.uploadStudentPhoto = async (req, res) => {
+  try {
+    if (!req.file) {
+      return sendError(res, 400, 'No image file uploaded (use field name "photo")');
+    }
+    const profileUrl = `/uploads/students/${req.file.filename}`;
+    return sendResponse(res, 200, { message: 'Photo uploaded successfully', data: { profileUrl } });
+  } catch (error) {
+    return sendError(res, 500, 'Failed to upload photo');
+  }
+};
 
 const upsertStudentAndParentAccounts = async (studentDoc) => {
   await StudentUser.findOneAndUpdate(
@@ -127,7 +142,7 @@ exports.createStudent = async (req, res) => {
   try {
     const {
       name,
-      studentId,
+      studentId: bodyStudentId,
       cardId,
       majorId,
       classId,
@@ -140,7 +155,11 @@ exports.createStudent = async (req, res) => {
       parentPhoneNumber,
       profileUrl,
       enrollmentYear,
-      enrollmentDate
+      enrollmentDate,
+      gender,
+      semester,
+      academicYear,
+      isActive
     } = req.body;
 
     // Check if date of birth is valid
@@ -173,12 +192,6 @@ exports.createStudent = async (req, res) => {
       return sendError(res, 400, 'Class is required (select a class or provide class name)');
     }
 
-    // Check if student ID already exists
-    const existingStudentId = await Student.findOne({ studentId });
-    if (existingStudentId) {
-      return sendError(res, 409, 'Student ID already exists');
-    }
-
     // Check if RFID card ID already exists
     const existingCardId = await Student.findOne({ cardId });
     if (existingCardId) {
@@ -197,30 +210,64 @@ exports.createStudent = async (req, res) => {
 
     const schoolId = req.user.role === 'school_admin' ? req.user.schoolId : major.schoolId;
 
-    // Enrollment: use enrollmentYear (joining year) or enrollmentDate
+    const schoolDoc = await School.findById(schoolId);
+    if (!schoolDoc) {
+      return sendError(res, 404, 'School not found');
+    }
+
+    let finalStudentId;
+    if (req.user.role === 'school_admin') {
+      finalStudentId = await generateUniqueStudentId(schoolDoc);
+    } else if (bodyStudentId && String(bodyStudentId).trim()) {
+      finalStudentId = String(bodyStudentId).trim();
+      const existingStudentId = await Student.findOne({ studentId: finalStudentId });
+      if (existingStudentId) {
+        return sendError(res, 409, 'Student ID already exists');
+      }
+    } else {
+      finalStudentId = await generateUniqueStudentId(schoolDoc);
+    }
+
+    // Enrollment: academic year drives enrollmentYear when provided
+    const ay = academicYear !== undefined && academicYear !== '' ? parseInt(academicYear, 10) : null;
+    const ey = enrollmentYear !== undefined && enrollmentYear !== '' ? parseInt(enrollmentYear, 10) : null;
+    const yearForEnrollment = (!isNaN(ay) && ay >= 2000 && ay <= 2100) ? ay : ((!isNaN(ey) && ey >= 2000 && ey <= 2100) ? ey : null);
+
     let resolvedEnrollmentDate = enrollmentDate ? new Date(enrollmentDate) : new Date();
-    if (enrollmentYear) {
-      const y = parseInt(enrollmentYear, 10);
-      if (y >= 2000 && y <= 2100) resolvedEnrollmentDate = new Date(y, 0, 1);
+    if (yearForEnrollment) {
+      resolvedEnrollmentDate = new Date(yearForEnrollment, 0, 1);
+    }
+
+    let semesterNum;
+    if (semester !== undefined && semester !== '') {
+      semesterNum = parseInt(semester, 10);
+      const maxTerm = schoolDoc.numberOfTerms || 6;
+      if (isNaN(semesterNum) || semesterNum < 1 || semesterNum > maxTerm) {
+        return sendError(res, 400, `Semester must be between 1 and ${maxTerm}`);
+      }
     }
 
     const student = new Student({
       schoolId,
       name,
-      studentId,
+      studentId: finalStudentId,
       cardId,
       majorId,
       classId: resolvedClassId,
       class: resolvedClass,
-      enrollmentYear: enrollmentYear ? parseInt(enrollmentYear, 10) : undefined,
+      enrollmentYear: yearForEnrollment || undefined,
+      academicYear: (!isNaN(ay) && ay >= 2000 && ay <= 2100) ? ay : (yearForEnrollment || undefined),
+      semester: semesterNum,
+      gender: gender || undefined,
       dateOfBirth,
-      email,
+      email: email && String(email).trim() ? String(email).trim().toLowerCase() : undefined,
       phone,
       parentFirstName,
       parentLastName,
       parentPhoneNumber,
       profileUrl,
-      enrollmentDate: resolvedEnrollmentDate
+      enrollmentDate: resolvedEnrollmentDate,
+      isActive: isActive !== undefined ? !!isActive : true
     });
 
     await student.save();
@@ -242,7 +289,6 @@ exports.updateStudent = async (req, res) => {
   try {
     const {
       name,
-      studentId,
       cardId,
       majorId,
       classId,
@@ -256,7 +302,10 @@ exports.updateStudent = async (req, res) => {
       profileUrl,
       isActive,
       enrollmentDate,
-      enrollmentYear
+      enrollmentYear,
+      gender,
+      semester,
+      academicYear
     } = req.body;
 
     const student = await Student.findById(req.params.id);
@@ -264,16 +313,7 @@ exports.updateStudent = async (req, res) => {
       return sendError(res, 404, 'Student not found');
     }
 
-    // Check if student ID is being changed and conflicts with existing
-    if (studentId && studentId !== student.studentId) {
-      const existingStudentId = await Student.findOne({ 
-        studentId,
-        _id: { $ne: student._id }
-      });
-      if (existingStudentId) {
-        return sendError(res, 409, 'Student ID already exists');
-      }
-    }
+    // Student ID is immutable after creation
 
     // Check if RFID card ID is being changed and conflicts with existing
     if (cardId && cardId !== student.cardId) {
@@ -316,19 +356,39 @@ exports.updateStudent = async (req, res) => {
       student.class = studentClass;
     }
 
-    // Enrollment year
+    // Enrollment / academic year
     if (enrollmentYear !== undefined) {
       const y = parseInt(enrollmentYear, 10);
       if (!isNaN(y) && y >= 2000 && y <= 2100) student.enrollmentYear = y;
     }
+    if (academicYear !== undefined) {
+      const y = parseInt(academicYear, 10);
+      if (!isNaN(y) && y >= 2000 && y <= 2100) {
+        student.academicYear = y;
+        student.enrollmentYear = y;
+      }
+    }
+
+    if (semester !== undefined) {
+      const schoolDoc = await School.findById(student.schoolId);
+      const maxTerm = schoolDoc?.numberOfTerms || 6;
+      const s = parseInt(semester, 10);
+      if (!isNaN(s) && s >= 1 && s <= maxTerm) student.semester = s;
+      else if (semester === null || semester === '') student.semester = undefined;
+    }
+
+    if (gender !== undefined) {
+      student.gender = gender || undefined;
+    }
 
     // Update fields
     if (name) student.name = name;
-    if (studentId) student.studentId = studentId;
     if (cardId) student.cardId = cardId;
     if (majorId) student.majorId = majorId;
     if (dateOfBirth) student.dateOfBirth = dateOfBirth;
-    if (email !== undefined) student.email = email;
+    if (email !== undefined) {
+      student.email = email && String(email).trim() ? String(email).trim().toLowerCase() : undefined;
+    }
     if (phone !== undefined) student.phone = phone;
     if (parentFirstName !== undefined) student.parentFirstName = parentFirstName;
     if (parentLastName !== undefined) student.parentLastName = parentLastName;

@@ -1,9 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../controllers/auth');
+const profileController = require('../controllers/profile');
 const { validateRequest } = require('../middlewares/validation');
-const { authenticateToken } = require('../middlewares/auth');
+const { authenticateToken, authorizeRoles } = require('../middlewares/auth');
 const { body } = require('express-validator');
+const { uploadProfilePhoto } = require('../middlewares/uploadProfilePhoto');
+
+const profilePhotoUpload = (req, res, next) => {
+  uploadProfilePhoto.single('photo')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message || 'Upload failed' });
+    }
+    next();
+  });
+};
 
 /**
  * @swagger
@@ -163,6 +174,49 @@ router.post('/logout', authController.logout);
 // @route   GET /api/auth/session
 // @desc    Check session (whoami)
 router.get('/session', authenticateToken, authController.session);
+
+router.get(
+  '/profile',
+  authenticateToken,
+  authorizeRoles('super_admin', 'school_admin', 'teacher'),
+  profileController.getProfile
+);
+
+router.patch(
+  '/profile',
+  authenticateToken,
+  authorizeRoles('super_admin', 'school_admin', 'teacher'),
+  [
+    body('name').optional().isLength({ max: 100 }).withMessage('Name is too long'),
+    body('phone').optional().isLength({ max: 30 }).withMessage('Phone is too long'),
+    body('profileUrl').optional().isLength({ max: 500 }).withMessage('Profile URL is too long'),
+    body('email').optional({ checkFalsy: true }).isEmail().withMessage('Invalid email'),
+    body('department').optional().isLength({ max: 100 }),
+    body('specialization').optional().isLength({ max: 200 })
+  ],
+  validateRequest,
+  profileController.patchProfile
+);
+
+router.put(
+  '/profile/password',
+  authenticateToken,
+  authorizeRoles('super_admin', 'school_admin', 'teacher'),
+  [
+    body('currentPassword').notEmpty().withMessage('Current password is required'),
+    body('newPassword').isLength({ min: 4 }).withMessage('New password must be at least 4 characters')
+  ],
+  validateRequest,
+  profileController.changePassword
+);
+
+router.post(
+  '/profile/photo',
+  authenticateToken,
+  authorizeRoles('super_admin', 'school_admin', 'teacher'),
+  profilePhotoUpload,
+  profileController.uploadProfilePhoto
+);
 
 /**
  * @swagger
