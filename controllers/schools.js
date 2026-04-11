@@ -123,6 +123,7 @@ exports.updateMySchool = async (req, res, next) => {
         return sendError(res, 400, 'At least one enrollment semester must be enabled');
       }
       school.enrollmentSemestersEnabled = cleaned;
+      school.markModified('enrollmentSemestersEnabled');
     }
     if (defaultEnrollmentSemester !== undefined) {
       const raw = defaultEnrollmentSemester;
@@ -157,7 +158,8 @@ exports.updateMySchool = async (req, res, next) => {
       return sendError(res, 400, 'Default enrollment semester must be one of the enabled semesters');
     }
     await school.save();
-    sendResponse(res, 200, { message: 'School updated successfully', data: school });
+    const updated = await School.findById(school._id);
+    sendResponse(res, 200, { message: 'School updated successfully', data: updated });
   } catch (error) {
     next(error);
   }
@@ -244,6 +246,7 @@ exports.updateSchool = async (req, res, next) => {
         return sendError(res, 400, 'At least one enrollment semester must be enabled');
       }
       school.enrollmentSemestersEnabled = cleaned;
+      school.markModified('enrollmentSemestersEnabled');
     }
     if (defaultEnrollmentSemester !== undefined) {
       const raw = defaultEnrollmentSemester;
@@ -277,10 +280,11 @@ exports.updateSchool = async (req, res, next) => {
     }
 
     await school.save();
+    const updated = await School.findById(school._id);
 
     sendResponse(res, 200, {
       message: 'School updated successfully',
-      data: school
+      data: updated
     });
   } catch (error) {
     next(error);
