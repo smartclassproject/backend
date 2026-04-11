@@ -93,10 +93,8 @@ const studentValidation = {
   create: [
     { field: 'name', message: 'Student name is required' },
     { field: 'name', message: 'Student name cannot exceed 100 characters', max: 100 },
-    { field: 'studentId', message: 'Student ID is required' },
-    { field: 'studentId', message: 'Student ID cannot exceed 20 characters', max: 20 },
-    { field: 'cardId', message: 'RFID card ID is required' },
-    { field: 'cardId', message: 'Card ID cannot exceed 50 characters', max: 50 },
+    { field: 'studentId', message: 'Student ID cannot exceed 32 characters', max: 32, optional: true },
+    { field: 'cardId', message: 'Card ID cannot exceed 50 characters', max: 50, optional: true },
     { field: 'majorId', message: 'Major ID is required' },
     { field: 'class', message: 'Class is required' },
     { field: 'class', message: 'Class cannot exceed 10 characters', max: 10 },

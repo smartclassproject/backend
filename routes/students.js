@@ -362,8 +362,16 @@ router.post('/students', authorizeRoles('school_admin'),
   [
     body('name').notEmpty().withMessage('Student name is required')
       .isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
-    body('studentId').optional().isLength({ max: 32 }).withMessage('Student ID cannot exceed 32 characters'),
-    body('cardId').optional({ checkFalsy: true }).isLength({ max: 50 }).withMessage('Card ID cannot exceed 50 characters'),
+    body('studentId')
+      .optional({ values: 'falsy' })
+      .trim()
+      .isLength({ min: 1, max: 32 })
+      .withMessage('Student ID must be 1–32 characters when provided (omit to auto-generate)'),
+    body('cardId')
+      .optional({ values: 'falsy' })
+      .trim()
+      .isLength({ max: 50 })
+      .withMessage('Card ID cannot exceed 50 characters when provided'),
     body('majorId').notEmpty().withMessage('Major ID is required')
       .isMongoId().withMessage('Invalid major ID'),
     body('classId').notEmpty().withMessage('Class is required')
@@ -470,7 +478,11 @@ router.put('/students/:id',
   authorizeRoles('school_admin'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
-    body('cardId').optional().isLength({ max: 50 }).withMessage('Card ID cannot exceed 50 characters'),
+    body('cardId')
+      .optional({ values: 'falsy' })
+      .trim()
+      .isLength({ max: 50 })
+      .withMessage('Card ID cannot exceed 50 characters when provided'),
     body('majorId').optional().isMongoId().withMessage('Invalid major ID'),
     body('classId').optional().isMongoId().withMessage('Invalid class ID'),
     body('class').optional().isLength({ max: 50 }).withMessage('Class cannot exceed 50 characters'),
