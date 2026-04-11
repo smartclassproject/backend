@@ -196,7 +196,10 @@ exports.createStudent = async (req, res) => {
       return sendError(res, 400, 'Class is required (select a class or provide class name)');
     }
 
-    const resolvedCardId = cardId != null && String(cardId).trim() ? String(cardId).trim() : undefined;
+    let resolvedCardId = cardId != null && String(cardId).trim() ? String(cardId).trim() : undefined;
+    if (resolvedCardId && resolvedCardId.length > 50) {
+      return sendError(res, 400, 'Card ID cannot exceed 50 characters');
+    }
     if (resolvedCardId) {
       const existingCardId = await Student.findOne({ cardId: resolvedCardId });
       if (existingCardId) {
@@ -225,7 +228,11 @@ exports.createStudent = async (req, res) => {
     if (req.user.role === 'school_admin') {
       finalStudentId = await generateUniqueStudentId(schoolDoc);
     } else if (bodyStudentId && String(bodyStudentId).trim()) {
-      finalStudentId = String(bodyStudentId).trim();
+      const sid = String(bodyStudentId).trim();
+      if (sid.length > 32) {
+        return sendError(res, 400, 'Student ID cannot exceed 32 characters');
+      }
+      finalStudentId = sid;
       const existingStudentId = await Student.findOne({ studentId: finalStudentId });
       if (existingStudentId) {
         return sendError(res, 409, 'Student ID already exists');
