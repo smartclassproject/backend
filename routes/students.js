@@ -5,17 +5,6 @@ const { authorizeRoles, authorizeResourceAccess } = require('../middlewares/auth
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Student = require('../models/Student');
-const { uploadStudentPhoto } = require('../middlewares/uploadStudentPhoto');
-
-const studentPhotoUpload = (req, res, next) => {
-  uploadStudentPhoto.single('photo')(req, res, (err) => {
-    if (err) {
-      return res.status(400).json({ success: false, message: err.message || 'Upload failed' });
-    }
-    next();
-  });
-};
-
 
 
 /**
@@ -267,16 +256,6 @@ router.get('/school/:schoolId/students', authorizeRoles('admin'), studentControl
  *         description: Internal server error
  */
 router.get('/students', authorizeRoles('school_admin', 'teacher'), studentController.getMySchoolStudents);
-
-const studentProfilePhotoHandlers = [
-  authorizeRoles('school_admin'),
-  studentPhotoUpload,
-  studentController.uploadStudentPhoto
-];
-/** Legacy path (double "students") — keep for old clients. */
-router.post('/students/profile-photo', ...studentProfilePhotoHandlers);
-/** Preferred path: POST /api/students/profile-photo (works better behind some reverse proxies). */
-router.post('/profile-photo', ...studentProfilePhotoHandlers);
 
 /**
  * @swagger

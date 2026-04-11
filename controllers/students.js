@@ -11,7 +11,7 @@ const ParentUser = require('../models/ParentUser');
 const {sendError, sendResponse} = require('../utils/response');
 const { seasonsEnabledForSchoolDoc, ENROLLMENT_SEASONS } = require('../utils/schoolEnrollment');
 
-/** POST /api/students/profile-photo (or legacy POST /api/students/students/profile-photo) */
+/** POST /api/students/profile-photo (see routes/studentProfilePhoto.js; legacy POST .../students/profile-photo) */
 exports.uploadStudentPhoto = async (req, res) => {
   try {
     if (!req.file) {

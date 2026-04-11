@@ -11,6 +11,7 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const schoolRoutes = require('./routes/schools');
 const adminRoutes = require('./routes/admins');
+const studentProfilePhotoRoutes = require('./routes/studentProfilePhoto');
 const studentRoutes = require('./routes/students');
 const teacherRoutes = require('./routes/teachers');
 const majorRoutes = require('./routes/majors');
@@ -135,6 +136,8 @@ app.use('/api/attendance', attendanceRoutes); // NOTE: some attendance endpoints
 app.use('/api/devices', authenticateToken, deviceRoutes);
 app.use('/api/dashboard', authenticateToken, dashboardRoutes);
 
+// Profile upload routes mounted first so they are not affected by ordering inside the large students router.
+app.use('/api/students', authenticateToken, studentProfilePhotoRoutes);
 app.use('/api/students', authenticateToken, studentRoutes);
 app.use('/api/teachers', authenticateToken, teacherRoutes);
 app.use('/api/majors', authenticateToken, majorRoutes);
