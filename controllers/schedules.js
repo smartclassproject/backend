@@ -469,7 +469,7 @@ exports.checkConflicts = async (req, res) => {
 async function checkScheduleConflicts(newSchedule, excludeScheduleId = null) {
   const conflicts = [];
   const newTeacherId = newSchedule?.teacherId ? String(newSchedule.teacherId) : null;
-  const newClassroom = (newSchedule?.classroom || '').trim().toLowerCase();
+  const newClassroom = String(newSchedule?.classroom || '').trim().toLowerCase();
   const newWeeklySessions = Array.isArray(newSchedule?.weeklySessions) ? newSchedule.weeklySessions : [];
 
   // Find overlapping schedules
@@ -482,14 +482,19 @@ async function checkScheduleConflicts(newSchedule, excludeScheduleId = null) {
   }).populate('courseId', 'name').populate('teacherId', 'name');
 
   overlappingSchedules.forEach(existingSchedule => {
+    const existingCourseName = existingSchedule?.courseId?.name || 'another course';
+    const existingWeeklySessions = Array.isArray(existingSchedule?.weeklySessions)
+      ? existingSchedule.weeklySessions
+      : [];
+
     // Check for classroom conflicts
-    const existingClassroom = (existingSchedule.classroom || '').trim().toLowerCase();
+    const existingClassroom = String(existingSchedule?.classroom || '').trim().toLowerCase();
     if (newClassroom && existingClassroom && existingClassroom === newClassroom) {
-      const hasTimeConflict = checkTimeOverlap(existingSchedule.weeklySessions, newWeeklySessions);
+      const hasTimeConflict = checkTimeOverlap(existingWeeklySessions, newWeeklySessions);
       if (hasTimeConflict) {
         conflicts.push({
           type: 'classroom',
-          message: `Classroom conflict with ${existingSchedule.courseId.name}`,
+          message: `Classroom conflict with ${existingCourseName}`,
           schedule: existingSchedule
         });
       }
@@ -500,11 +505,11 @@ async function checkScheduleConflicts(newSchedule, excludeScheduleId = null) {
       ? String(existingSchedule.teacherId._id)
       : (existingSchedule?.teacherId ? String(existingSchedule.teacherId) : null);
     if (newTeacherId && existingTeacherId && existingTeacherId === newTeacherId) {
-      const hasTimeConflict = checkTimeOverlap(existingSchedule.weeklySessions, newWeeklySessions);
+      const hasTimeConflict = checkTimeOverlap(existingWeeklySessions, newWeeklySessions);
       if (hasTimeConflict) {
         conflicts.push({
           type: 'teacher',
-          message: `Teacher conflict with ${existingSchedule.courseId.name}`,
+          message: `Teacher conflict with ${existingCourseName}`,
           schedule: existingSchedule
         });
       }
@@ -516,6 +521,10 @@ async function checkScheduleConflicts(newSchedule, excludeScheduleId = null) {
 
 // Helper function to check time overlap between weekly sessions
 function checkTimeOverlap(sessions1, sessions2) {
+  if (!Array.isArray(sessions1) || !Array.isArray(sessions2)) {
+    return false;
+  }
+
   for (const session1 of sessions1) {
     for (const session2 of sessions2) {
       if (session1.day === session2.day) {
