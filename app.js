@@ -57,56 +57,60 @@ if (!helmetAssumeHttpsSite) {
 app.use(helmet(helmetOptions));
 // CORS configuration
 let corsAllowAllWarningLogged = false;
+const getConfiguredAllowedOrigins = () => {
+  const allowedOrigins = new Set([
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:8080',
+  ]);
+
+  const envFrontendUrls = (
+    process.env.CORS_ALLOWED_ORIGINS ||
+    process.env.FRONTEND_URLS ||
+    process.env.FRONTEND_URL ||
+    ''
+  ).split(',').map(s => s.trim()).filter(Boolean);
+  envFrontendUrls.forEach(u => allowedOrigins.add(u));
+
+  return allowedOrigins;
+};
+
+const getConfiguredOriginPatterns = () =>
+  (process.env.FRONTEND_URL_PATTERNS || '').split(',').map(s => s.trim()).filter(Boolean);
+
+const isOriginAllowed = (origin) => {
+  if (!origin) return true;
+  if (process.env.ALLOW_ALL_ORIGINS === 'true' || process.env.NODE_ENV !== 'production') {
+    if (!corsAllowAllWarningLogged) {
+      corsAllowAllWarningLogged = true;
+      console.warn('CORS: allowing all origins (ALLOW_ALL_ORIGINS=true or NODE_ENV!=' + (process.env.NODE_ENV || 'undefined') + ')');
+    }
+    return true;
+  }
+
+  const allowedOrigins = getConfiguredAllowedOrigins();
+  const frontendPatterns = getConfiguredOriginPatterns();
+  const isLocalhostOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  const originAllowedDirect = allowedOrigins.has(origin);
+  const originAllowedByPattern = frontendPatterns.some(p => origin.endsWith(p));
+
+  if (!isLocalhostOrigin && !originAllowedDirect && !originAllowedByPattern) {
+    console.warn('CORS blocked origin:', origin, 'Allowed:', Array.from(allowedOrigins).join(','), 'Patterns:', frontendPatterns.join(','));
+  }
+  return isLocalhostOrigin || originAllowedDirect || originAllowedByPattern;
+};
+
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
 
-    // Dev shortcut: allow all origins when explicitly enabled (use only for local debugging)
-    // Also allow all origins by default in non-production environments so devices (ESP8266, mobile apps, etc.) can access the API during development.
-    if (process.env.ALLOW_ALL_ORIGINS === 'true' || process.env.NODE_ENV !== 'production') {
-      if (!corsAllowAllWarningLogged) {
-        corsAllowAllWarningLogged = true;
-        console.warn('CORS: allowing all origins (ALLOW_ALL_ORIGINS=true or NODE_ENV!=' + (process.env.NODE_ENV || 'undefined') + ')');
-      }
+    if (isOriginAllowed(origin)) {
       return callback(null, true);
     }
 
-    // Default local origins (useful when API is hosted and frontend runs locally)
-    const allowedOrigins = new Set([
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://localhost:8080',
-    ]);
-
-    // Add frontend URLs from environment variables (comma-separated list supported)
-    // Preferred: CORS_ALLOWED_ORIGINS. Backward-compatible: FRONTEND_URLS / FRONTEND_URL.
-    const envFrontendUrls = (
-      process.env.CORS_ALLOWED_ORIGINS ||
-      process.env.FRONTEND_URLS ||
-      process.env.FRONTEND_URL ||
-      ''
-    ).split(',').map(s => s.trim()).filter(Boolean);
-    envFrontendUrls.forEach(u => allowedOrigins.add(u));
-
-    // Support simple domain patterns from env var FRONTEND_URL_PATTERNS (comma-separated), e.g. ".example.com" or "example.com"
-    const frontendPatterns = (process.env.FRONTEND_URL_PATTERNS || '').split(',').map(s => s.trim()).filter(Boolean);
-
-    const isLocalhostOrigin = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-    const originAllowedDirect = allowedOrigins.has(origin);
-    const originAllowedByPattern = frontendPatterns.some(p => {
-      if (!p) return false;
-      // Allow entries like ".example.com" or "example.com" to match any subdomain
-      return origin.endsWith(p);
-    });
-
-    if (isLocalhostOrigin || originAllowedDirect || originAllowedByPattern) {
-      return callback(null, true);
-    }
-
-    console.warn('CORS blocked origin:', origin, 'Allowed:', Array.from(allowedOrigins).join(','), 'Patterns:', frontendPatterns.join(','));
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -115,6 +119,24 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (!origin || !isOriginAllowed(origin)) return next();
+
+  res.header('Access-Control-Allow-Origin', origin);
+  res.header('Vary', 'Origin');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+  res.header(
+    'Access-Control-Allow-Headers',
+    req.headers['access-control-request-headers'] || 'Content-Type, Authorization'
+  );
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).send();
+  }
+  return next();
+});
 
 // Rate limiting
 const limiter = rateLimit({

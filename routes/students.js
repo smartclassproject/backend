@@ -344,8 +344,14 @@ router.post('/students', authorizeRoles('school_admin'),
   [
     body('name').notEmpty().withMessage('Student name is required')
       .isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
-    // studentId / cardId: not validated here — school_admin gets auto-generated studentId; card is optional.
-    // (Avoids express-validator edge cases and matches legacy gateways that still required these fields.)
+    // school_admin flow: studentId is auto-generated; cardId is optional.
+    // Keep explicit optional validators so these fields can never become "required" again.
+    body('studentId')
+      .optional({ checkFalsy: true })
+      .isLength({ max: 32 }).withMessage('Student ID cannot exceed 32 characters'),
+    body('cardId')
+      .optional({ checkFalsy: true })
+      .isLength({ max: 50 }).withMessage('Card ID cannot exceed 50 characters'),
     body('majorId').notEmpty().withMessage('Major ID is required')
       .isMongoId().withMessage('Invalid major ID'),
     body('classId').notEmpty().withMessage('Class is required')
