@@ -61,7 +61,19 @@ exports.getTimetable = async (req, res) => {
 };
 
 exports.getReports = async (req, res) => {
-  const results = await TermResult.find({ studentId: req.user.studentId, schoolId: req.user.schoolId }).populate('courseId', 'name code').sort({ academicYear: -1, term: -1, createdAt: -1 });
+  const query = { studentId: req.user.studentId, schoolId: req.user.schoolId };
+  const { academicYear, term } = req.query;
+  if (academicYear !== undefined && academicYear !== null && academicYear !== '') {
+    const y = parseInt(String(academicYear), 10);
+    if (!Number.isNaN(y)) query.academicYear = y;
+  }
+  if (term !== undefined && term !== null && term !== '' && String(term).toLowerCase() !== 'all') {
+    const t = parseInt(String(term), 10);
+    if (!Number.isNaN(t)) query.term = t;
+  }
+  const results = await TermResult.find(query)
+    .populate('courseId', 'name code')
+    .sort({ academicYear: -1, term: 1, courseId: 1, createdAt: -1 });
   return sendResponse(res, 200, { message: 'Reports retrieved successfully', data: results });
 };
 
