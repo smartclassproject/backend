@@ -8,7 +8,8 @@ const uploadPolicies = {
   fees_proof: {
     maxSize: 5 * MB,
     allowedMimePrefixes: ['image/'],
-    allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp'],
+    // Android gallery often reports application/octet-stream; rely on extension + image MIME.
+    allowedExtensions: ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'],
   },
   study_material: {
     maxSize: 100 * MB,
@@ -64,13 +65,25 @@ const fileFilter = (req, file, cb) => {
   if (!policy) return cb(new Error('Unsupported upload context'));
 
   const ext = path.extname(file.originalname || '').toLowerCase();
-  const isAllowedMime = policy.allowedMimePrefixes.some((prefix) => file.mimetype?.startsWith(prefix));
+  const mime = (file.mimetype || '').toLowerCase();
+  const isAllowedMime = policy.allowedMimePrefixes.some((prefix) => mime.startsWith(prefix));
   const isAllowedExt = policy.allowedExtensions.includes(ext);
-  if (!isAllowedMime && !isAllowedExt) {
+  // Some devices send octet-stream or empty MIME for valid image files.
+  const isOctetOrUnknownImage =
+    (mime === 'application/octet-stream' || mime === '' || mime === 'binary/octet-stream') &&
+    policy.allowedExtensions.includes(ext);
+  if (!isAllowedMime && !isAllowedExt && !isOctetOrUnknownImage) {
     return cb(new Error(`Invalid file type for context ${context}`));
   }
   req.uploadContext = context;
-  req.uploadCategory = resolveCategory(file.mimetype || '');
+  let category = resolveCategory(mime);
+  if (context === 'fees_proof') {
+    const imageExts = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
+    if (mime.startsWith('image/') || imageExts.includes(ext)) {
+      category = 'image';
+    }
+  }
+  req.uploadCategory = category;
   cb(null, true);
 };
 

@@ -111,7 +111,13 @@ exports.submitFeeProof = async (req, res) => {
     const asset = await FileAsset.findById(proofAssetId);
     if (!asset) return sendError(res, 404, 'Uploaded proof file not found');
     if (String(asset.schoolId) !== String(req.user.schoolId)) return sendError(res, 403, 'Proof file does not belong to your school');
-    if (asset.context !== 'fees_proof' || asset.category !== 'image') {
+    const ext = String(asset.extension || '').toLowerCase();
+    const imageExts = ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif'];
+    const looksLikeImage =
+      asset.category === 'image' ||
+      String(asset.mimeType || '').toLowerCase().startsWith('image/') ||
+      imageExts.includes(ext);
+    if (asset.context !== 'fees_proof' || !looksLikeImage) {
       return sendError(res, 400, 'Fee proof must be an uploaded image in fees_proof context');
     }
     resolvedProofAssetId = asset._id;
