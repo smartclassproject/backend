@@ -103,7 +103,19 @@ exports.getFees = async (req, res) => {
 
 exports.submitFeeProof = async (req, res) => {
   const { amountSubmitted, paymentMethod, paymentReference, paidAt, proofUrl, proofAssetId, notes } = req.body;
-  if (!amountSubmitted || !paymentMethod) return sendError(res, 400, 'amountSubmitted and paymentMethod are required');
+  const amt = Number(amountSubmitted);
+  if (
+    amountSubmitted === undefined ||
+    amountSubmitted === null ||
+    amountSubmitted === '' ||
+    Number.isNaN(amt) ||
+    amt <= 0
+  ) {
+    return sendError(res, 400, 'amountSubmitted is required and must be a positive number');
+  }
+  if (!String(paymentMethod || '').trim()) {
+    return sendError(res, 400, 'paymentMethod is required');
+  }
   let resolvedProofUrl = proofUrl || null;
   let resolvedProofAssetId = null;
 
@@ -132,7 +144,7 @@ exports.submitFeeProof = async (req, res) => {
     submittedByType: 'STUDENT',
     submittedById: req.user._id,
     submittedByModel: 'StudentUser',
-    amountSubmitted: Number(amountSubmitted),
+    amountSubmitted: amt,
     paymentMethod,
     paymentReference,
     paidAt: paidAt ? new Date(paidAt) : undefined,

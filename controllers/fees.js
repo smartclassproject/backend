@@ -74,7 +74,20 @@ exports.getFeeAccounts = async (req, res) => {
 exports.submitPaymentProof = async (req, res) => {
   try {
     const { studentId, amountSubmitted, paymentMethod, paymentReference, paidAt, proofUrl, notes } = req.body;
-    if (!studentId || !amountSubmitted || !paymentMethod) return sendError(res, 400, 'studentId, amountSubmitted and paymentMethod are required');
+    if (!studentId) return sendError(res, 400, 'studentId is required');
+    const amt = Number(amountSubmitted);
+    if (
+      amountSubmitted === undefined ||
+      amountSubmitted === null ||
+      amountSubmitted === '' ||
+      Number.isNaN(amt) ||
+      amt <= 0
+    ) {
+      return sendError(res, 400, 'amountSubmitted is required and must be a positive number');
+    }
+    if (!String(paymentMethod || '').trim()) {
+      return sendError(res, 400, 'paymentMethod is required');
+    }
 
     const student = await ensureStudentInSchool(studentId, req.user.schoolId);
     if (!student) return sendError(res, 404, 'Student not found in your school');
@@ -88,7 +101,7 @@ exports.submitPaymentProof = async (req, res) => {
       submittedByType: isParent ? 'PARENT' : 'STUDENT',
       submittedById: req.user._id,
       submittedByModel: isParent ? 'ParentUser' : 'StudentUser',
-      amountSubmitted: Number(amountSubmitted), paymentMethod, paymentReference,
+      amountSubmitted: amt, paymentMethod, paymentReference,
       paidAt: paidAt ? new Date(paidAt) : undefined, proofUrl, notes
     });
 

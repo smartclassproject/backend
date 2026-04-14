@@ -39,8 +39,20 @@ exports.getFees = async (req, res) => {
 
 exports.submitFeeProof = async (req, res) => {
   const { amountSubmitted, paymentMethod, paymentReference, paidAt, proofUrl, notes } = req.body;
-  if (!amountSubmitted || !paymentMethod) return sendError(res, 400, 'amountSubmitted and paymentMethod are required');
-  const doc = await FeePaymentSubmission.create({ schoolId: req.user.schoolId, studentId: req.user.studentId, submittedByType: 'PARENT', submittedById: req.user._id, submittedByModel: 'ParentUser', amountSubmitted: Number(amountSubmitted), paymentMethod, paymentReference, paidAt: paidAt ? new Date(paidAt) : undefined, proofUrl, notes });
+  const amt = Number(amountSubmitted);
+  if (
+    amountSubmitted === undefined ||
+    amountSubmitted === null ||
+    amountSubmitted === '' ||
+    Number.isNaN(amt) ||
+    amt <= 0
+  ) {
+    return sendError(res, 400, 'amountSubmitted is required and must be a positive number');
+  }
+  if (!String(paymentMethod || '').trim()) {
+    return sendError(res, 400, 'paymentMethod is required');
+  }
+  const doc = await FeePaymentSubmission.create({ schoolId: req.user.schoolId, studentId: req.user.studentId, submittedByType: 'PARENT', submittedById: req.user._id, submittedByModel: 'ParentUser', amountSubmitted: amt, paymentMethod, paymentReference, paidAt: paidAt ? new Date(paidAt) : undefined, proofUrl, notes });
   return sendResponse(res, 201, { message: 'Payment proof submitted successfully', data: doc });
 };
 
