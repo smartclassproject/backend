@@ -12,7 +12,9 @@ router.get('/report-cards/:id/download', authorizeRoles('student'), controller.d
 router.get('/fees', authorizeRoles('student'), controller.getFees);
 router.post('/fees/submissions', authorizeRoles('student'), [
   body('amountSubmitted').isNumeric().withMessage('amountSubmitted must be numeric'),
-  body('paymentMethod').notEmpty().withMessage('paymentMethod is required')
+  body('paymentMethod').notEmpty().withMessage('paymentMethod is required'),
+  body('proofAssetId').optional().isMongoId().withMessage('proofAssetId must be a valid id'),
+  body('proofUrl').optional().isString(),
 ], validateRequest, controller.submitFeeProof);
 router.get('/materials', authorizeRoles('student'), controller.getMaterials);
 router.get('/lessons', authorizeRoles('student'), controller.getLessons);

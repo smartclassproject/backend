@@ -11,6 +11,7 @@ const Announcement = require('../models/Announcement');
 const Inquiry = require('../models/Inquiry');
 const StudentUser = require('../models/StudentUser');
 const PrivacyPolicy = require('../models/PrivacyPolicy');
+const FileAsset = require('../models/FileAsset');
 const bcrypt = require('bcryptjs');
 const { sendResponse, sendError } = require('../utils/response');
 
@@ -77,7 +78,9 @@ exports.downloadReport = async (req, res) => {
 exports.getFees = async (req, res) => {
   const account = await StudentFeeAccount.findOne({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ updatedAt: -1 });
   const instructions = await SchoolPaymentInstruction.findOne({ schoolId: req.user.schoolId, isActive: true });
-  const submissions = await FeePaymentSubmission.find({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ createdAt: -1 });
+  const submissions = await FeePaymentSubmission.find({ schoolId: req.user.schoolId, studentId: req.user.studentId })
+    .populate('proofAssetId', 'publicUrl mimeType category originalName sizeBytes')
+    .sort({ createdAt: -1 });
   const paymentInstructions = instructions
     ? {
         paymentMethods: [
@@ -99,9 +102,38 @@ exports.getFees = async (req, res) => {
 };
 
 exports.submitFeeProof = async (req, res) => {
-  const { amountSubmitted, paymentMethod, paymentReference, paidAt, proofUrl, notes } = req.body;
+  const { amountSubmitted, paymentMethod, paymentReference, paidAt, proofUrl, proofAssetId, notes } = req.body;
   if (!amountSubmitted || !paymentMethod) return sendError(res, 400, 'amountSubmitted and paymentMethod are required');
-  const doc = await FeePaymentSubmission.create({ schoolId: req.user.schoolId, studentId: req.user.studentId, submittedByType: 'STUDENT', submittedById: req.user._id, submittedByModel: 'StudentUser', amountSubmitted: Number(amountSubmitted), paymentMethod, paymentReference, paidAt: paidAt ? new Date(paidAt) : undefined, proofUrl, notes });
+  let resolvedProofUrl = proofUrl || null;
+  let resolvedProofAssetId = null;
+
+  if (proofAssetId) {
+    const asset = await FileAsset.findById(proofAssetId);
+    if (!asset) return sendError(res, 404, 'Uploaded proof file not found');
+    if (String(asset.schoolId) !== String(req.user.schoolId)) return sendError(res, 403, 'Proof file does not belong to your school');
+    if (asset.context !== 'fees_proof' || asset.category !== 'image') {
+      return sendError(res, 400, 'Fee proof must be an uploaded image in fees_proof context');
+    }
+    resolvedProofAssetId = asset._id;
+    resolvedProofUrl = asset.publicUrl;
+  } else if (!proofUrl) {
+    return sendError(res, 400, 'Payment proof image is required');
+  }
+
+  const doc = await FeePaymentSubmission.create({
+    schoolId: req.user.schoolId,
+    studentId: req.user.studentId,
+    submittedByType: 'STUDENT',
+    submittedById: req.user._id,
+    submittedByModel: 'StudentUser',
+    amountSubmitted: Number(amountSubmitted),
+    paymentMethod,
+    paymentReference,
+    paidAt: paidAt ? new Date(paidAt) : undefined,
+    proofUrl: resolvedProofUrl,
+    proofAssetId: resolvedProofAssetId,
+    notes,
+  });
   return sendResponse(res, 201, { message: 'Payment proof submitted successfully', data: doc });
 };
 

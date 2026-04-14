@@ -30,6 +30,7 @@ const announcementRoutes = require('./routes/announcements');
 const inquiryRoutes = require('./routes/inquiries');
 const studentAppRoutes = require('./routes/studentApp');
 const parentAppRoutes = require('./routes/parentApp');
+const uploadRoutes = require('./routes/uploads');
 
 // Import middleware
 const { errorHandler } = require('./middlewares/errorHandler');
@@ -194,6 +195,7 @@ app.use('/api/announcements', authenticateToken, announcementRoutes);
 app.use('/api/inquiries', authenticateToken, inquiryRoutes);
 app.use('/api/student-app', authenticateToken, studentAppRoutes);
 app.use('/api/parent-app', authenticateToken, parentAppRoutes);
+app.use('/api/uploads', authenticateToken, uploadRoutes);
 
 // Swagger documentation
 const swaggerJsdoc = require('swagger-jsdoc');
