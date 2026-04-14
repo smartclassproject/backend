@@ -9,12 +9,45 @@ const SchoolPaymentInstruction = require('../models/SchoolPaymentInstruction');
 const FeePaymentSubmission = require('../models/FeePaymentSubmission');
 const Announcement = require('../models/Announcement');
 const Inquiry = require('../models/Inquiry');
+const StudentUser = require('../models/StudentUser');
+const PrivacyPolicy = require('../models/PrivacyPolicy');
+const bcrypt = require('bcryptjs');
 const { sendResponse, sendError } = require('../utils/response');
 
 exports.getMe = async (req, res) => {
   const student = await Student.findById(req.user.studentId).populate('majorId', 'name code').populate('classId', 'name code');
   if (!student) return sendError(res, 404, 'Student not found');
-  return sendResponse(res, 200, { message: 'Student profile retrieved successfully', data: student });
+  const data = {
+    identity: {
+      name: student.name,
+      studentId: student.studentId,
+      className: student.classId?.name || student.class || null,
+      status: student.isActive ? 'active' : 'inactive',
+    },
+    personal: {
+      dateOfBirth: student.dateOfBirth,
+      gender: student.gender || null,
+      email: student.email || null,
+      phone: student.phone || null,
+      profileUrl: student.profileUrl || null,
+    },
+    academic: {
+      major: student.majorId?.name || null,
+      majorCode: student.majorId?.code || null,
+      enrollmentYear: student.enrollmentYear || null,
+      academicYear: student.academicYear || null,
+      entryTerm: student.entryTerm || null,
+      enrollmentSeason: student.enrollmentSeason || null,
+      enrollmentCohortYear: student.enrollmentCohortYear || null,
+    },
+    parentGuardian: {
+      firstName: student.parentFirstName || null,
+      lastName: student.parentLastName || null,
+      phoneNumber: student.parentPhoneNumber || null,
+    },
+    raw: student,
+  };
+  return sendResponse(res, 200, { message: 'Student profile retrieved successfully', data });
 };
 
 exports.getTimetable = async (req, res) => {
@@ -45,7 +78,24 @@ exports.getFees = async (req, res) => {
   const account = await StudentFeeAccount.findOne({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ updatedAt: -1 });
   const instructions = await SchoolPaymentInstruction.findOne({ schoolId: req.user.schoolId, isActive: true });
   const submissions = await FeePaymentSubmission.find({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ createdAt: -1 });
-  return sendResponse(res, 200, { message: 'Fees data retrieved successfully', data: { account, instructions, submissions } });
+  const paymentInstructions = instructions
+    ? {
+        paymentMethods: [
+          instructions.bankAccountNumber ? 'BANK_TRANSFER' : null,
+          instructions.momoNumber ? 'MOMO' : null,
+        ].filter(Boolean),
+        bankName: instructions.bankName || null,
+        accountName: instructions.bankAccountName || instructions.momoAccountName || null,
+        accountNumber: instructions.bankAccountNumber || null,
+        walletNumber: instructions.momoNumber || null,
+        notes: instructions.instructionsText || null,
+        updatedAt: instructions.updatedAt,
+      }
+    : null;
+  return sendResponse(res, 200, {
+    message: 'Fees data retrieved successfully',
+    data: { account, instructions, paymentInstructions, submissions },
+  });
 };
 
 exports.submitFeeProof = async (req, res) => {
@@ -61,7 +111,21 @@ exports.getMaterials = async (req, res) => {
   const courses = await Course.find({ schoolId: student.schoolId, majorId: student.majorId, isActive: true }).select('_id');
   const courseIds = courses.map(c => c._id);
   const materials = await Material.find({ schoolId: student.schoolId, courseId: { $in: courseIds }, isPublished: true, isActive: true }).populate('courseId', 'name code').populate('teacherId', 'name').sort({ createdAt: -1 });
-  return sendResponse(res, 200, { message: 'Materials retrieved successfully', data: materials });
+  const data = materials.map((m) => ({
+    _id: m._id,
+    title: m.title,
+    description: m.description || null,
+    subject: m.courseId?.name || null,
+    courseCode: m.courseId?.code || null,
+    fileType: m.fileType || 'other',
+    fileSize: m.fileSize || null,
+    downloadUrl: m.fileUrl,
+    fileUrl: m.fileUrl,
+    publishedAt: m.createdAt,
+    teacherName: m.teacherId?.name || null,
+    raw: m,
+  }));
+  return sendResponse(res, 200, { message: 'Materials retrieved successfully', data });
 };
 
 exports.getLessons = async (req, res) => {
@@ -70,7 +134,18 @@ exports.getLessons = async (req, res) => {
   const courses = await Course.find({ schoolId: student.schoolId, majorId: student.majorId, isActive: true }).select('_id');
   const courseIds = courses.map(c => c._id);
   const lessons = await Lesson.find({ schoolId: student.schoolId, courseId: { $in: courseIds }, isPublished: true, isActive: true }).populate('courseId', 'name code').populate('teacherId', 'name').sort({ lessonDate: -1 });
-  return sendResponse(res, 200, { message: 'Lessons retrieved successfully', data: lessons });
+  const data = lessons.map((l) => ({
+    _id: l._id,
+    title: l.title,
+    summary: l.description || null,
+    subject: l.courseId?.name || null,
+    courseCode: l.courseId?.code || null,
+    lessonDate: l.lessonDate,
+    teacherName: l.teacherId?.name || null,
+    materials: l.materials || [],
+    raw: l,
+  }));
+  return sendResponse(res, 200, { message: 'Lessons retrieved successfully', data });
 };
 
 exports.getAnnouncements = async (req, res) => {
@@ -87,8 +162,24 @@ exports.createInquiry = async (req, res) => {
 };
 
 exports.getInquiries = async (req, res) => {
-  const items = await Inquiry.find({ requesterId: req.user._id, requesterModel: 'StudentUser' }).sort({ createdAt: -1 });
-  return sendResponse(res, 200, { message: 'Inquiries retrieved successfully', data: items });
+  const items = await Inquiry.find({ requesterId: req.user._id, requesterModel: 'StudentUser' }).sort({ updatedAt: -1, createdAt: -1 });
+  const data = items.map((item) => ({
+    ...item.toObject(),
+    statusLabel: item.status === 'IN_PROGRESS' ? 'answered' : item.status.toLowerCase(),
+    thread: [
+      {
+        authorRole: 'student',
+        message: item.message,
+        createdAt: item.createdAt,
+      },
+      ...item.responses.map((r) => ({
+        authorRole: r.authorModel === 'AdminUser' ? 'admin' : 'student',
+        message: r.message,
+        createdAt: r.createdAt,
+      })),
+    ],
+  }));
+  return sendResponse(res, 200, { message: 'Inquiries retrieved successfully', data });
 };
 
 exports.replyInquiry = async (req, res) => {
@@ -100,4 +191,44 @@ exports.replyInquiry = async (req, res) => {
   item.responses.push({ authorId: req.user._id, authorModel: 'StudentUser', message });
   await item.save();
   return sendResponse(res, 200, { message: 'Reply submitted successfully', data: item });
+};
+
+exports.getPrivacyPolicy = async (req, res) => {
+  const schoolPolicy = await PrivacyPolicy.findOne({ schoolId: req.user.schoolId, isActive: true }).sort({ updatedAt: -1 });
+  const globalPolicy = !schoolPolicy
+    ? await PrivacyPolicy.findOne({ schoolId: null, isActive: true }).sort({ updatedAt: -1 })
+    : null;
+  const policy = schoolPolicy || globalPolicy;
+  return sendResponse(res, 200, {
+    message: 'Privacy policy retrieved successfully',
+    data: policy
+      ? {
+          title: policy.title,
+          content: policy.content,
+          version: policy.version || null,
+          updatedAt: policy.updatedAt,
+          source: schoolPolicy ? 'school' : 'global',
+        }
+      : null,
+  });
+};
+
+exports.changePassword = async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+  if (!currentPassword || !newPassword) return sendError(res, 400, 'currentPassword and newPassword are required');
+  if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+    return sendError(res, 400, 'confirmPassword does not match newPassword');
+  }
+  if (String(newPassword).length < 4) return sendError(res, 400, 'New password must be at least 4 characters');
+
+  const studentUser = await StudentUser.findById(req.user._id);
+  if (!studentUser) return sendError(res, 404, 'Student user not found');
+
+  const isValid = await studentUser.comparePassword(currentPassword);
+  if (!isValid) return sendError(res, 400, 'Current password is incorrect');
+
+  studentUser.password = await bcrypt.hash(newPassword, 12);
+  studentUser.passwordSetup = true;
+  await studentUser.save();
+  return sendResponse(res, 200, { message: 'Password changed successfully' });
 };

@@ -1,8 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const adminController = require('../controllers/admins');
+const privacyPoliciesController = require('../controllers/privacyPolicies');
 const { validateAdmin, validateAdminUpdate, validateObjectId } = require('../middlewares/validation');
 const { authorize } = require('../middlewares/auth');
+const { body } = require('express-validator');
+const { validateRequest } = require('../middlewares/validation');
 
 /**
  * @swagger
@@ -476,5 +479,20 @@ router.post('/resend-password-setup', adminController.resendPasswordSetupEmail);
  *         description: Admin not found
  */
 router.post('/create-password-manually', authorize('super_admin'), adminController.createPasswordManually);
+
+router.get('/privacy-policy', authorize('super_admin'), privacyPoliciesController.getPrivacyPolicyForAdmin);
+router.post(
+  '/privacy-policy',
+  authorize('super_admin'),
+  [
+    body('title').notEmpty().withMessage('title is required'),
+    body('content').notEmpty().withMessage('content is required'),
+    body('version').optional().isLength({ max: 40 }).withMessage('version is too long'),
+    body('schoolId').optional({ checkFalsy: true }).isMongoId().withMessage('Invalid schoolId'),
+    body('isActive').optional().isBoolean().withMessage('isActive must be boolean'),
+  ],
+  validateRequest,
+  privacyPoliciesController.upsertPrivacyPolicy
+);
 
 module.exports = router; 

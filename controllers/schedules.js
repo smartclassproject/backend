@@ -466,6 +466,9 @@ exports.checkConflicts = async (req, res) => {
 // Helper function to check for schedule conflicts
 async function checkScheduleConflicts(newSchedule, excludeScheduleId = null) {
   const conflicts = [];
+  const newTeacherId = newSchedule?.teacherId ? String(newSchedule.teacherId) : null;
+  const newClassroom = (newSchedule?.classroom || '').trim().toLowerCase();
+  const newWeeklySessions = Array.isArray(newSchedule?.weeklySessions) ? newSchedule.weeklySessions : [];
 
   // Find overlapping schedules
   const overlappingSchedules = await CourseSchedule.find({
@@ -478,8 +481,9 @@ async function checkScheduleConflicts(newSchedule, excludeScheduleId = null) {
 
   overlappingSchedules.forEach(existingSchedule => {
     // Check for classroom conflicts
-    if (existingSchedule.classroom === newSchedule.classroom) {
-      const hasTimeConflict = checkTimeOverlap(existingSchedule.weeklySessions, newSchedule.weeklySessions);
+    const existingClassroom = (existingSchedule.classroom || '').trim().toLowerCase();
+    if (newClassroom && existingClassroom && existingClassroom === newClassroom) {
+      const hasTimeConflict = checkTimeOverlap(existingSchedule.weeklySessions, newWeeklySessions);
       if (hasTimeConflict) {
         conflicts.push({
           type: 'classroom',
@@ -490,8 +494,11 @@ async function checkScheduleConflicts(newSchedule, excludeScheduleId = null) {
     }
 
     // Check for teacher conflicts
-    if (existingSchedule.teacherId.toString() === newSchedule.teacherId.toString()) {
-      const hasTimeConflict = checkTimeOverlap(existingSchedule.weeklySessions, newSchedule.weeklySessions);
+    const existingTeacherId = existingSchedule?.teacherId?._id
+      ? String(existingSchedule.teacherId._id)
+      : (existingSchedule?.teacherId ? String(existingSchedule.teacherId) : null);
+    if (newTeacherId && existingTeacherId && existingTeacherId === newTeacherId) {
+      const hasTimeConflict = checkTimeOverlap(existingSchedule.weeklySessions, newWeeklySessions);
       if (hasTimeConflict) {
         conflicts.push({
           type: 'teacher',

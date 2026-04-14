@@ -23,5 +23,11 @@ router.post('/inquiries', authorizeRoles('student'), [
 ], validateRequest, controller.createInquiry);
 router.get('/inquiries', authorizeRoles('student'), controller.getInquiries);
 router.post('/inquiries/:id/reply', authorizeRoles('student'), controller.replyInquiry);
+router.get('/privacy-policy', authorizeRoles('student'), controller.getPrivacyPolicy);
+router.post('/change-password', authorizeRoles('student'), [
+  body('currentPassword').notEmpty().withMessage('currentPassword is required'),
+  body('newPassword').isLength({ min: 4 }).withMessage('newPassword must be at least 4 characters'),
+  body('confirmPassword').optional().isLength({ min: 4 }).withMessage('confirmPassword must be at least 4 characters'),
+], validateRequest, controller.changePassword);
 
 module.exports = router;
