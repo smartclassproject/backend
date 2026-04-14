@@ -17,10 +17,20 @@ exports.uploadFile = async (req, res) => {
     const schoolId = resolveSchoolId(req.user);
     if (!schoolId) return sendError(res, 400, 'schoolId not found for authenticated user');
 
-    const relative = req.file.path.split(path.sep).join('/');
-    const normalizedRelative = relative.startsWith('uploads/')
-      ? relative
-      : `uploads/${path.basename(relative)}`;
+    // Multer writes under uploads/<context>/filename. req.file.path is often absolute
+    // (e.g. /var/www/backend/uploads/fees_proof/asset-....jpg). Do not use basename-only
+    // fallback or URLs become /uploads/asset-....jpg and break static /uploads/fees_proof/... .
+    const uploadsRoot = path.resolve(path.join(__dirname, '..', 'uploads'));
+    const absoluteFile = path.resolve(req.file.path);
+    let relToUploads = path.relative(uploadsRoot, absoluteFile);
+    if (!relToUploads || relToUploads.startsWith('..')) {
+      const ctx = String(req.uploadContext || req.params.context || 'misc').replace(/[^a-z0-9_-]/gi, '');
+      relToUploads = path.join(ctx, req.file.filename);
+    }
+    const normalizedRelative = path.posix.join(
+      'uploads',
+      ...relToUploads.split(/[/\\]/).filter(Boolean)
+    );
     const publicUrl = `/${normalizedRelative}`;
 
     const doc = await FileAsset.create({
