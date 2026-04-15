@@ -5,7 +5,7 @@ const Exam = require('../models/Exam');
 const Material = require('../models/Material');
 const Lesson = require('../models/Lesson');
 const TermResult = require('../models/TermResult');
-const StudentFeeAccount = require('../models/StudentFeeAccount');
+const { findPreferredFeeAccount } = require('../utils/feeAccountHelpers');
 const SchoolPaymentInstruction = require('../models/SchoolPaymentInstruction');
 const FeePaymentSubmission = require('../models/FeePaymentSubmission');
 const Announcement = require('../models/Announcement');
@@ -144,13 +144,13 @@ exports.downloadReport = async (req, res) => {
   if (!result) return sendError(res, 404, 'Report not found');
   if (result.studentId.toString() !== req.user.studentId.toString()) return sendError(res, 403, 'Access denied');
 
-  const account = await StudentFeeAccount.findOne({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ updatedAt: -1 });
+  const account = await findPreferredFeeAccount(req.user.schoolId, req.user.studentId);
   if (!account || account.status !== 'PAID') return sendError(res, 403, 'Please complete school fees to download official report');
   return sendResponse(res, 200, { message: 'Report download authorized', data: { reportId: result._id, signed: true, downloadable: true } });
 };
 
 exports.getFees = async (req, res) => {
-  const account = await StudentFeeAccount.findOne({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ updatedAt: -1 });
+  const account = await findPreferredFeeAccount(req.user.schoolId, req.user.studentId);
   const instructions = await SchoolPaymentInstruction.findOne({ schoolId: req.user.schoolId, isActive: true });
   const submissions = await FeePaymentSubmission.find({ schoolId: req.user.schoolId, studentId: req.user.studentId })
     .populate('proofAssetId', 'publicUrl mimeType category originalName sizeBytes')
@@ -226,6 +226,11 @@ exports.submitFeeProof = async (req, res) => {
     proofAssetId: resolvedProofAssetId,
     notes,
   });
+  const feeAccount = await findPreferredFeeAccount(req.user.schoolId, req.user.studentId);
+  if (feeAccount && feeAccount.status !== 'PAID') {
+    feeAccount.status = 'UNDER_REVIEW';
+    await feeAccount.save();
+  }
   return sendResponse(res, 201, { message: 'Payment proof submitted successfully', data: doc });
 };
 

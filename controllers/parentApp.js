@@ -1,6 +1,6 @@
 const Student = require('../models/Student');
 const TermResult = require('../models/TermResult');
-const StudentFeeAccount = require('../models/StudentFeeAccount');
+const { findPreferredFeeAccount } = require('../utils/feeAccountHelpers');
 const SchoolPaymentInstruction = require('../models/SchoolPaymentInstruction');
 const FeePaymentSubmission = require('../models/FeePaymentSubmission');
 const Announcement = require('../models/Announcement');
@@ -10,7 +10,7 @@ const { sendResponse, sendError } = require('../utils/response');
 exports.getDashboard = async (req, res) => {
   const student = await Student.findById(req.user.studentId).populate('majorId', 'name code').populate('classId', 'name code');
   if (!student) return sendError(res, 404, 'Student not found');
-  const account = await StudentFeeAccount.findOne({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ updatedAt: -1 });
+  const account = await findPreferredFeeAccount(req.user.schoolId, req.user.studentId);
   const latestResults = await TermResult.find({ schoolId: req.user.schoolId, studentId: req.user.studentId }).populate('courseId', 'name code').sort({ academicYear: -1, term: -1, createdAt: -1 }).limit(10);
   const announcements = await Announcement.find({ schoolId: req.user.schoolId, isActive: true, $or: [{ targetAudience: { $in: ['ALL'] } }, { targetAudience: { $in: ['PARENTS'] } }] }).sort({ isPinned: -1, publishAt: -1 }).limit(10);
   return sendResponse(res, 200, { message: 'Parent dashboard data retrieved successfully', data: { student, fees: account, latestResults, announcements } });
@@ -37,13 +37,13 @@ exports.downloadReport = async (req, res) => {
   const result = await TermResult.findById(req.params.id);
   if (!result) return sendError(res, 404, 'Report not found');
   if (result.studentId.toString() !== req.user.studentId.toString()) return sendError(res, 403, 'Access denied');
-  const account = await StudentFeeAccount.findOne({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ updatedAt: -1 });
+  const account = await findPreferredFeeAccount(req.user.schoolId, req.user.studentId);
   if (!account || account.status !== 'PAID') return sendError(res, 403, 'Please complete school fees to download official report');
   return sendResponse(res, 200, { message: 'Report download authorized', data: { reportId: result._id, signed: true, downloadable: true } });
 };
 
 exports.getFees = async (req, res) => {
-  const account = await StudentFeeAccount.findOne({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ updatedAt: -1 });
+  const account = await findPreferredFeeAccount(req.user.schoolId, req.user.studentId);
   const instructions = await SchoolPaymentInstruction.findOne({ schoolId: req.user.schoolId, isActive: true });
   const submissions = await FeePaymentSubmission.find({ schoolId: req.user.schoolId, studentId: req.user.studentId }).sort({ createdAt: -1 });
   return sendResponse(res, 200, { message: 'Fees data retrieved successfully', data: { account, instructions, submissions } });
@@ -65,6 +65,11 @@ exports.submitFeeProof = async (req, res) => {
     return sendError(res, 400, 'paymentMethod is required');
   }
   const doc = await FeePaymentSubmission.create({ schoolId: req.user.schoolId, studentId: req.user.studentId, submittedByType: 'PARENT', submittedById: req.user._id, submittedByModel: 'ParentUser', amountSubmitted: amt, paymentMethod, paymentReference, paidAt: paidAt ? new Date(paidAt) : undefined, proofUrl, notes });
+  const feeAccount = await findPreferredFeeAccount(req.user.schoolId, req.user.studentId);
+  if (feeAccount && feeAccount.status !== 'PAID') {
+    feeAccount.status = 'UNDER_REVIEW';
+    await feeAccount.save();
+  }
   return sendResponse(res, 201, { message: 'Payment proof submitted successfully', data: doc });
 };
 

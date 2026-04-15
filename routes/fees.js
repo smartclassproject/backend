@@ -13,6 +13,15 @@ router.post('/accounts', authorizeRoles('school_admin'), [
   body('studentId').notEmpty().withMessage('studentId is required'),
   body('totalAmountDue').isNumeric().withMessage('totalAmountDue must be numeric')
 ], validateRequest, controller.upsertFeeAccount);
+router.post('/accounts/bulk', authorizeRoles('school_admin'), [
+  body('mode').isIn(['ALL_ACTIVE', 'COHORT']).withMessage('mode must be ALL_ACTIVE or COHORT'),
+  body('totalAmountDue').isNumeric().withMessage('totalAmountDue must be numeric'),
+  body('enrollmentSeason').optional().isString(),
+  body('enrollmentCohortYear').optional().isInt({ min: 2000, max: 2100 }),
+  body('onlyActive').optional().isBoolean(),
+  body('currency').optional().isString(),
+  body('dryRun').optional().isBoolean(),
+], validateRequest, controller.bulkUpsertFeeAccounts);
 
 router.post('/submissions', authorizeRoles('student', 'parent'), [
   body('studentId').notEmpty().withMessage('studentId is required'),
