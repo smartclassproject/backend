@@ -7,6 +7,10 @@ const controller = require('../controllers/studentApp');
 
 router.get('/me', authorizeRoles('student'), controller.getMe);
 router.get('/timetable', authorizeRoles('student'), controller.getTimetable);
+router.get('/terms-config', authorizeRoles('student'), controller.getTermsConfig);
+router.get('/courses', authorizeRoles('student'), controller.getMyCourses);
+router.get('/exams', authorizeRoles('student'), controller.getExams);
+router.get('/exams/:id', authorizeRoles('student'), controller.getExamById);
 router.get('/report-cards', authorizeRoles('student'), controller.getReports);
 router.get('/report-cards/:id/download', authorizeRoles('student'), controller.downloadReport);
 router.get('/fees', authorizeRoles('student'), controller.getFees);

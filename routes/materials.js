@@ -27,7 +27,7 @@ router.post('/',
     body('title').notEmpty().withMessage('Title is required')
       .isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
     body('fileType').notEmpty().withMessage('File type is required')
-      .isIn(['pdf', 'ppt', 'pptx', 'video', 'image', 'document', 'other']).withMessage('Invalid file type'),
+      .isIn(['pdf', 'ppt', 'pptx', 'video', 'image', 'document', 'other', 'link']).withMessage('Invalid file type'),
     body('fileUrl').notEmpty().withMessage('File URL is required')
       .isURL().withMessage('File URL must be a valid URL'),
     body('fileName').optional().isLength({ max: 255 }).withMessage('File name cannot exceed 255 characters'),
@@ -44,7 +44,7 @@ router.put('/:id',
   authorizeRoles('teacher', 'school_admin', 'super_admin'),
   [
     body('title').optional().isLength({ max: 200 }).withMessage('Title cannot exceed 200 characters'),
-    body('fileType').optional().isIn(['pdf', 'ppt', 'pptx', 'video', 'image', 'document', 'other']).withMessage('Invalid file type'),
+    body('fileType').optional().isIn(['pdf', 'ppt', 'pptx', 'video', 'image', 'document', 'other', 'link']).withMessage('Invalid file type'),
     body('fileUrl').optional().isURL().withMessage('File URL must be a valid URL'),
     body('isPublished').optional().isBoolean().withMessage('isPublished must be a boolean')
   ],

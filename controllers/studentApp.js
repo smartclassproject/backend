@@ -1,6 +1,7 @@
 const Student = require('../models/Student');
 const Course = require('../models/Course');
 const CourseSchedule = require('../models/CourseSchedule');
+const Exam = require('../models/Exam');
 const Material = require('../models/Material');
 const Lesson = require('../models/Lesson');
 const TermResult = require('../models/TermResult');
@@ -10,6 +11,7 @@ const FeePaymentSubmission = require('../models/FeePaymentSubmission');
 const Announcement = require('../models/Announcement');
 const Inquiry = require('../models/Inquiry');
 const StudentUser = require('../models/StudentUser');
+const School = require('../models/School');
 const PrivacyPolicy = require('../models/PrivacyPolicy');
 const FileAsset = require('../models/FileAsset');
 const bcrypt = require('bcryptjs');
@@ -58,6 +60,66 @@ exports.getTimetable = async (req, res) => {
   const courseIds = courses.map(c => c._id);
   const schedules = await CourseSchedule.find({ schoolId: student.schoolId, courseId: { $in: courseIds }, isActive: true }).populate('courseId', 'name code').populate('teacherId', 'name').sort({ startDate: 1 });
   return sendResponse(res, 200, { message: 'Timetable retrieved successfully', data: { courses, schedules } });
+};
+
+/** Grading terms per year (school setting). */
+exports.getTermsConfig = async (req, res) => {
+  const school = await School.findById(req.user.schoolId).select('numberOfTerms');
+  const numberOfTerms = Math.min(Math.max(school?.numberOfTerms ?? 3, 1), 6);
+  return sendResponse(res, 200, { message: 'Terms config retrieved successfully', data: { numberOfTerms } });
+};
+
+/** Active courses for the student's major (same scope as timetable / materials). */
+exports.getMyCourses = async (req, res) => {
+  const student = await Student.findById(req.user.studentId);
+  if (!student) return sendError(res, 404, 'Student not found');
+  const courses = await Course.find({
+    schoolId: student.schoolId,
+    majorId: student.majorId,
+    isActive: true,
+  })
+    .select('name code description credits')
+    .sort({ name: 1 });
+  return sendResponse(res, 200, { message: 'Courses retrieved successfully', data: courses });
+};
+
+/** Published exams for the student's major courses (same scope as timetable). */
+exports.getExams = async (req, res) => {
+  const student = await Student.findById(req.user.studentId);
+  if (!student) return sendError(res, 404, 'Student not found');
+  const courses = await Course.find({ schoolId: student.schoolId, majorId: student.majorId, isActive: true }).select('_id');
+  const courseIds = courses.map(c => c._id);
+  if (!courseIds.length) {
+    return sendResponse(res, 200, { message: 'Exams retrieved successfully', data: [] });
+  }
+  const exams = await Exam.find({
+    schoolId: student.schoolId,
+    courseId: { $in: courseIds },
+    isPublished: true,
+    isActive: { $ne: false },
+  })
+    .populate('courseId', 'name code')
+    .populate('teacherId', 'name email')
+    .sort({ examDate: 1, examTime: 1 });
+  return sendResponse(res, 200, { message: 'Exams retrieved successfully', data: exams });
+};
+
+exports.getExamById = async (req, res) => {
+  const student = await Student.findById(req.user.studentId);
+  if (!student) return sendError(res, 404, 'Student not found');
+  const exam = await Exam.findById(req.params.id)
+    .populate('courseId', 'name code description')
+    .populate('teacherId', 'name email phone')
+    .populate('scheduleId', 'classroom weeklySessions');
+  if (!exam) return sendError(res, 404, 'Exam not found');
+  if (exam.schoolId.toString() !== student.schoolId.toString()) return sendError(res, 403, 'Access denied');
+  if (!exam.isPublished) return sendError(res, 403, 'Exam is not published');
+  if (exam.isActive === false) return sendError(res, 404, 'Exam not found');
+  const allowedCourses = await Course.find({ schoolId: student.schoolId, majorId: student.majorId, isActive: true }).select('_id');
+  const allowed = new Set(allowedCourses.map(c => c._id.toString()));
+  const courseKey = (exam.courseId && exam.courseId._id ? exam.courseId._id : exam.courseId).toString();
+  if (!allowed.has(courseKey)) return sendError(res, 403, 'Access denied');
+  return sendResponse(res, 200, { message: 'Exam retrieved successfully', data: exam });
 };
 
 exports.getReports = async (req, res) => {
@@ -178,9 +240,11 @@ exports.getMaterials = async (req, res) => {
     title: m.title,
     description: m.description || null,
     subject: m.courseId?.name || null,
+    course: m.courseId?.name || null,
     courseCode: m.courseId?.code || null,
     fileType: m.fileType || 'other',
     fileSize: m.fileSize || null,
+    fileName: m.fileName || null,
     downloadUrl: m.fileUrl,
     fileUrl: m.fileUrl,
     publishedAt: m.createdAt,
@@ -199,8 +263,10 @@ exports.getLessons = async (req, res) => {
   const data = lessons.map((l) => ({
     _id: l._id,
     title: l.title,
+    description: l.description || null,
     summary: l.description || null,
     subject: l.courseId?.name || null,
+    course: l.courseId?.name || null,
     courseCode: l.courseId?.code || null,
     lessonDate: l.lessonDate,
     teacherName: l.teacherId?.name || null,

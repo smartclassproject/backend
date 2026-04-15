@@ -33,7 +33,7 @@ const materialSchema = new mongoose.Schema({
   fileType: {
     type: String,
     required: [true, 'File type is required'],
-    enum: ['pdf', 'ppt', 'pptx', 'video', 'image', 'document', 'other'],
+    enum: ['pdf', 'ppt', 'pptx', 'video', 'image', 'document', 'other', 'link'],
     lowercase: true
   },
   fileUrl: {
