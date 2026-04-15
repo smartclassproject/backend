@@ -237,6 +237,7 @@ exports.getMaterials = async (req, res) => {
   const materials = await Material.find({ schoolId: student.schoolId, courseId: { $in: courseIds }, isPublished: true, isActive: true }).populate('courseId', 'name code').populate('teacherId', 'name').sort({ createdAt: -1 });
   const data = materials.map((m) => ({
     _id: m._id,
+    courseId: m.courseId?._id ? m.courseId._id.toString() : (m.courseId ? String(m.courseId) : null),
     title: m.title,
     description: m.description || null,
     subject: m.courseId?.name || null,
@@ -262,6 +263,7 @@ exports.getLessons = async (req, res) => {
   const lessons = await Lesson.find({ schoolId: student.schoolId, courseId: { $in: courseIds }, isPublished: true, isActive: true }).populate('courseId', 'name code').populate('teacherId', 'name').sort({ lessonDate: -1 });
   const data = lessons.map((l) => ({
     _id: l._id,
+    courseId: l.courseId?._id ? l.courseId._id.toString() : (l.courseId ? String(l.courseId) : null),
     title: l.title,
     description: l.description || null,
     summary: l.description || null,
