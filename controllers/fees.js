@@ -265,6 +265,15 @@ exports.submitPaymentProof = async (req, res) => {
 
     const isParent = req.user.role === 'parent';
     if (isParent && req.user.studentId && req.user.studentId.toString() !== studentId.toString()) return sendError(res, 403, 'Parents can only submit for linked student');
+    const account = await findPreferredFeeAccount(req.user.schoolId, studentId);
+    if (!account) return sendError(res, 400, 'No fee account found for this student');
+    const remainingBalance = Number(account.balance || 0);
+    if (remainingBalance <= 0) {
+      return sendError(res, 400, 'Fees are already fully paid. No additional payment is required.');
+    }
+    if (amt > remainingBalance) {
+      return sendError(res, 400, `Amount cannot be greater than remaining balance (${remainingBalance})`);
+    }
 
     const doc = await FeePaymentSubmission.create({
       schoolId: req.user.schoolId,
@@ -276,7 +285,6 @@ exports.submitPaymentProof = async (req, res) => {
       paidAt: paidAt ? new Date(paidAt) : undefined, proofUrl, notes
     });
 
-    const account = await findPreferredFeeAccount(req.user.schoolId, studentId);
     if (account && account.status !== 'PAID') { account.status = 'UNDER_REVIEW'; await account.save(); }
 
     return sendResponse(res, 201, { message: 'Payment proof submitted successfully', data: doc });

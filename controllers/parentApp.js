@@ -38,7 +38,8 @@ exports.downloadReport = async (req, res) => {
   if (!result) return sendError(res, 404, 'Report not found');
   if (result.studentId.toString() !== req.user.studentId.toString()) return sendError(res, 403, 'Access denied');
   const account = await findPreferredFeeAccount(req.user.schoolId, req.user.studentId);
-  if (!account || account.status !== 'PAID') return sendError(res, 403, 'Please complete school fees to download official report');
+  const balance = Number(account?.balance || 0);
+  if (!account || balance > 0) return sendError(res, 403, 'Please complete school fees to download official report');
   return sendResponse(res, 200, { message: 'Report download authorized', data: { reportId: result._id, signed: true, downloadable: true } });
 };
 
@@ -64,8 +65,16 @@ exports.submitFeeProof = async (req, res) => {
   if (!String(paymentMethod || '').trim()) {
     return sendError(res, 400, 'paymentMethod is required');
   }
-  const doc = await FeePaymentSubmission.create({ schoolId: req.user.schoolId, studentId: req.user.studentId, submittedByType: 'PARENT', submittedById: req.user._id, submittedByModel: 'ParentUser', amountSubmitted: amt, paymentMethod, paymentReference, paidAt: paidAt ? new Date(paidAt) : undefined, proofUrl, notes });
   const feeAccount = await findPreferredFeeAccount(req.user.schoolId, req.user.studentId);
+  if (!feeAccount) return sendError(res, 400, 'No fee account found for this student');
+  const remainingBalance = Number(feeAccount.balance || 0);
+  if (remainingBalance <= 0) {
+    return sendError(res, 400, 'Your fees are already fully paid. No additional payment is required.');
+  }
+  if (amt > remainingBalance) {
+    return sendError(res, 400, `Amount cannot be greater than remaining balance (${remainingBalance})`);
+  }
+  const doc = await FeePaymentSubmission.create({ schoolId: req.user.schoolId, studentId: req.user.studentId, submittedByType: 'PARENT', submittedById: req.user._id, submittedByModel: 'ParentUser', amountSubmitted: amt, paymentMethod, paymentReference, paidAt: paidAt ? new Date(paidAt) : undefined, proofUrl, notes });
   if (feeAccount && feeAccount.status !== 'PAID') {
     feeAccount.status = 'UNDER_REVIEW';
     await feeAccount.save();
