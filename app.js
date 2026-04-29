@@ -165,7 +165,7 @@ app.use('/uploads', express.static('uploads', {
 app.get('/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
-    message: 'SmartClass API is running',
+    message: 'RiseMe API is running',
     timestamp: new Date().toISOString()
   });
 });
@@ -205,9 +205,9 @@ const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'SmartClass API',
+      title: 'RiseMe API',
       version: '1.0.0',
-      description: 'API documentation for SmartClass - RFID-based school attendance management system',
+      description: 'API documentation for RiseMe - RFID-based school attendance management system',
     },
     servers: [
       {
@@ -263,7 +263,7 @@ connectDB();
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`SmartClass API server running on port ${PORT}`);
+  console.log(`RiseMe API server running on port ${PORT}`);
   console.log(`API Documentation available at http://localhost:${PORT}/api-docs`);
 });
 

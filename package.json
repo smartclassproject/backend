@@ -23,7 +23,7 @@
   ],
   "author": "",
   "license": "ISC",
-  "description": "Backend API for SmartClass - RFID-based school attendance management system",
+  "description": "Backend API for RiseMe - RFID-based school attendance management system",
   "dependencies": {
     "bcryptjs": "^3.0.2",
     "compression": "^1.7.4",

@@ -148,7 +148,7 @@ const deviceSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [100, 'Manufacturer cannot exceed 100 characters'],
-    default: 'SmartClass'
+    default: 'RiseMe'
   },
   firmwareVersion: {
     type: String,

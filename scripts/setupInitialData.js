@@ -251,7 +251,7 @@ const setupInitialData = async () => {
     console.log('   School Admin:');
     console.log('     Email: schooladmin@yourschool.com');
     console.log('     Password: YourSecurePassword123!');
-    console.log('\n🚀 You can now test the SmartClass API with this data!');
+    console.log('\n🚀 You can now test the RiseMe API with this data!');
 
   } catch (error) {
     console.error('❌ Error setting up initial data:', error.message);

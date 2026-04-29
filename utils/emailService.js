@@ -1,4 +1,42 @@
 const nodemailer = require("nodemailer");
+const fs = require('fs');
+const path = require('path');
+const BRAND_NAME = 'RiseMe';
+const BRAND_LOGO_URL = process.env.BRAND_LOGO_URL || '';
+const BRAND_LOGO_CID = 'riseme-brand-logo';
+const BRAND_LOGO_PATH = process.env.BRAND_LOGO_PATH
+  ? path.resolve(process.cwd(), process.env.BRAND_LOGO_PATH)
+  : path.resolve(process.cwd(), 'assets/logo.png');
+
+const hasLocalBrandLogo = () => {
+  try {
+    return fs.existsSync(BRAND_LOGO_PATH);
+  } catch {
+    return false;
+  }
+};
+
+const getBrandLogoSrc = () => {
+  if (hasLocalBrandLogo()) return `cid:${BRAND_LOGO_CID}`;
+  if (BRAND_LOGO_URL) return BRAND_LOGO_URL;
+  return '';
+};
+
+const getBrandLogoAttachment = () =>
+  hasLocalBrandLogo()
+    ? [{
+        filename: path.basename(BRAND_LOGO_PATH),
+        path: BRAND_LOGO_PATH,
+        cid: BRAND_LOGO_CID
+      }]
+    : [];
+
+const brandHeaderHtml = () => `
+  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+    ${getBrandLogoSrc() ? `<img src="${getBrandLogoSrc()}" alt="${BRAND_NAME} logo" style="height: 48px; margin-bottom: 10px;" />` : ''}
+    <h1 style="color: white; margin: 0;">${BRAND_NAME}</h1>
+  </div>
+`;
 
 /**
  * Email service utility for sending emails
@@ -73,22 +111,21 @@ class EmailService {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: to,
-      subject: 'Welcome to SmartClass - Set Up Your Password',
+      attachments: getBrandLogoAttachment(),
+      subject: `Welcome to ${BRAND_NAME} - Set Up Your Password`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0;">SmartClass</h1>
-          </div>
+          ${brandHeaderHtml()}
           
           <div style="padding: 30px; background: #f9f9f9;">
-            <h2 style="color: #333; margin-bottom: 20px;">Welcome to SmartClass!</h2>
+            <h2 style="color: #333; margin-bottom: 20px;">Welcome to ${BRAND_NAME}!</h2>
             
             <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
               Hello ${firstName},
             </p>
             
             <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Your account has been created successfully as a <strong>${role.replace('_', ' ')}</strong> in the SmartClass system.
+              Your account has been created successfully as a <strong>${role.replace('_', ' ')}</strong> in the ${BRAND_NAME} system.
             </p>
             
             ${schoolInfo}
@@ -128,17 +165,17 @@ class EmailService {
           
           <div style="background: #333; padding: 20px; text-align: center;">
             <p style="color: #999; margin: 0; font-size: 12px;">
-              © 2026 SmartClass. All rights reserved.
+              © 2026 ${BRAND_NAME}. All rights reserved.
             </p>
           </div>
         </div>
       `,
       text: `
-        Welcome to SmartClass!
+        Welcome to ${BRAND_NAME}!
         
         Hello ${firstName},
         
-        Your account has been created successfully as a ${role.replace('_', ' ')} in the SmartClass system.
+        Your account has been created successfully as a ${role.replace('_', ' ')} in the ${BRAND_NAME} system.
         
         ${school ? `School Assignment: ${school.name}${school.location ? ` (${school.location})` : ''}` : ''}
         
@@ -151,7 +188,7 @@ class EmailService {
         If you didn't request this email, please ignore it.
         
         Best regards,
-        The SmartClass Team
+        The ${BRAND_NAME} Team
       `
     };
 
@@ -175,12 +212,11 @@ class EmailService {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: to,
-      subject: 'SmartClass - Password Reset Request',
+      attachments: getBrandLogoAttachment(),
+      subject: `${BRAND_NAME} - Password Reset Request`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0;">SmartClass</h1>
-          </div>
+          ${brandHeaderHtml()}
           
           <div style="padding: 30px; background: #f9f9f9;">
             <h2 style="color: #333; margin-bottom: 20px;">Password Reset Request</h2>
@@ -224,7 +260,7 @@ class EmailService {
           
           <div style="background: #333; padding: 20px; text-align: center;">
             <p style="color: #999; margin: 0; font-size: 12px;">
-              © 2026 SmartClass. All rights reserved.
+              © 2026 ${BRAND_NAME}. All rights reserved.
             </p>
           </div>
         </div>
@@ -243,7 +279,7 @@ class EmailService {
         If you didn't request this password reset, please ignore this email.
         
         Best regards,
-        The SmartClass Team
+        The ${BRAND_NAME} Team
       `
     };
 
@@ -279,22 +315,21 @@ class EmailService {
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: to,
-      subject: 'Welcome to SmartClass - Your Login Credentials',
+      attachments: getBrandLogoAttachment(),
+      subject: `Welcome to ${BRAND_NAME} - Your Login Credentials`,
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0;">SmartClass</h1>
-          </div>
+          ${brandHeaderHtml()}
           
           <div style="padding: 30px; background: #f9f9f9;">
-            <h2 style="color: #333; margin-bottom: 20px;">Welcome to SmartClass!</h2>
+            <h2 style="color: #333; margin-bottom: 20px;">Welcome to ${BRAND_NAME}!</h2>
             
             <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
               Hello ${teacherName},
             </p>
             
             <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Your teacher account has been created successfully in the SmartClass system.
+              Your teacher account has been created successfully in the ${BRAND_NAME} system.
             </p>
             
             ${schoolInfo}
@@ -320,7 +355,7 @@ class EmailService {
             </div>
             
             <p style="color: #666; line-height: 1.6; margin-bottom: 30px;">
-              To access your account, please visit the SmartClass portal and log in with the credentials above:
+              To access your account, please visit the ${BRAND_NAME} portal and log in with the credentials above:
             </p>
             
             <div style="text-align: center; margin-bottom: 30px;">
@@ -332,7 +367,7 @@ class EmailService {
                         border-radius: 5px; 
                         display: inline-block; 
                         font-weight: bold;">
-                Login to SmartClass
+                Login to ${BRAND_NAME}
               </a>
             </div>
             
@@ -346,17 +381,17 @@ class EmailService {
           
           <div style="background: #333; padding: 20px; text-align: center;">
             <p style="color: #999; margin: 0; font-size: 12px;">
-              © 2026 SmartClass. All rights reserved.
+              © 2026 ${BRAND_NAME}. All rights reserved.
             </p>
           </div>
         </div>
       `,
       text: `
-        Welcome to SmartClass!
+        Welcome to ${BRAND_NAME}!
         
         Hello ${teacherName},
         
-        Your teacher account has been created successfully in the SmartClass system.
+        Your teacher account has been created successfully in the ${BRAND_NAME} system.
         
         ${school ? `School Assignment: ${school.name}${school.location ? ` (${school.location})` : ''}` : ''}
         
@@ -372,7 +407,7 @@ class EmailService {
         If you have any questions, please contact your school administrator.
         
         Best regards,
-        The SmartClass Team
+        The ${BRAND_NAME} Team
       `
     };
 

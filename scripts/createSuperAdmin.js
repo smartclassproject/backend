@@ -38,7 +38,7 @@ const createSuperAdmin = async () => {
     console.log('🔑 Password:', SUPER_ADMIN_CREDENTIALS.password);
     console.log('👤 Role:', SUPER_ADMIN_CREDENTIALS.role);
     console.log('');
-    console.log('🚀 You can now login to the SmartClass API using these credentials');
+    console.log('🚀 You can now login to the RiseMe API using these credentials');
     console.log('   POST /api/auth/login');
     console.log('   Body: { "email": "admin@yourdomain.com", "password": "YourSecurePassword123!" }');
 
