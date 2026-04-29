@@ -4,6 +4,9 @@ const path = require('path');
 const BRAND_NAME = 'RiseMe';
 const BRAND_LOGO_URL = process.env.BRAND_LOGO_URL || '';
 const BRAND_LOGO_CID = 'riseme-brand-logo';
+const BRAND_BLUE = '#1E73BE';
+const BRAND_GREEN = '#4CAF50';
+const BRAND_YELLOW = '#F4C430';
 const BRAND_LOGO_PATH = process.env.BRAND_LOGO_PATH
   ? path.resolve(process.cwd(), process.env.BRAND_LOGO_PATH)
   : path.resolve(process.cwd(), 'assets/logo.png');
@@ -32,9 +35,9 @@ const getBrandLogoAttachment = () =>
     : [];
 
 const brandHeaderHtml = () => `
-  <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
-    ${getBrandLogoSrc() ? `<img src="${getBrandLogoSrc()}" alt="${BRAND_NAME} logo" style="height: 48px; margin-bottom: 10px;" />` : ''}
-    <h1 style="color: white; margin: 0;">${BRAND_NAME}</h1>
+  <div style="background: linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_GREEN} 100%); padding: 24px 20px; text-align: center;">
+    ${getBrandLogoSrc() ? `<img src="${getBrandLogoSrc()}" alt="${BRAND_NAME} logo" style="height: 46px; margin-bottom: 10px;" />` : ''}
+    <h1 style="color: white; margin: 0; font-size: 42px; line-height: 1.1;">${BRAND_NAME}</h1>
   </div>
 `;
 
@@ -101,8 +104,8 @@ class EmailService {
     
     // School information section
     const schoolInfo = school ? `
-      <div style="background: #f0f8ff; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px;">
-        <h3 style="color: #333; margin: 0 0 10px 0; font-size: 16px;">🏫 School Assignment</h3>
+      <div style="background: #E3F2FD; border-left: 4px solid ${BRAND_BLUE}; padding: 15px; margin: 20px 0; border-radius: 6px;">
+        <h3 style="color: #1f2937; margin: 0 0 10px 0; font-size: 16px;">School Assignment</h3>
         <p style="color: #555; margin: 0; font-weight: bold;">${school.name}</p>
         ${school.location ? `<p style="color: #666; margin: 5px 0 0 0; font-size: 14px;">📍 ${school.location}</p>` : ''}
       </div>
@@ -114,10 +117,10 @@ class EmailService {
       attachments: getBrandLogoAttachment(),
       subject: `Welcome to ${BRAND_NAME} - Set Up Your Password`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #E5E7EB;">
           ${brandHeaderHtml()}
           
-          <div style="padding: 30px; background: #f9f9f9;">
+          <div style="padding: 30px; background: #ffffff;">
             <h2 style="color: #333; margin-bottom: 20px;">Welcome to ${BRAND_NAME}!</h2>
             
             <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
@@ -136,7 +139,7 @@ class EmailService {
             
             <div style="text-align: center; margin-bottom: 30px;">
               <a href="${setupUrl}" 
-                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                 style="background: linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_GREEN} 100%); 
                         color: white; 
                         padding: 15px 30px; 
                         text-decoration: none; 
@@ -151,7 +154,7 @@ class EmailService {
               If the button doesn't work, you can copy and paste this link into your browser:
             </p>
             
-            <p style="color: #667eea; font-size: 14px; word-break: break-all;">
+            <p style="color: ${BRAND_BLUE}; font-size: 14px; word-break: break-all;">
               ${setupUrl}
             </p>
             
@@ -163,8 +166,8 @@ class EmailService {
             </div>
           </div>
           
-          <div style="background: #333; padding: 20px; text-align: center;">
-            <p style="color: #999; margin: 0; font-size: 12px;">
+          <div style="background: ${BRAND_BLUE}; padding: 16px 20px; text-align: center;">
+            <p style="color: #E3F2FD; margin: 0; font-size: 12px;">
               © 2026 ${BRAND_NAME}. All rights reserved.
             </p>
           </div>
@@ -215,10 +218,10 @@ class EmailService {
       attachments: getBrandLogoAttachment(),
       subject: `${BRAND_NAME} - Password Reset Request`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #E5E7EB;">
           ${brandHeaderHtml()}
           
-          <div style="padding: 30px; background: #f9f9f9;">
+          <div style="padding: 30px; background: #ffffff;">
             <h2 style="color: #333; margin-bottom: 20px;">Password Reset Request</h2>
             
             <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
@@ -231,7 +234,7 @@ class EmailService {
             
             <div style="text-align: center; margin-bottom: 30px;">
               <a href="${resetUrl}" 
-                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                 style="background: linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_GREEN} 100%); 
                         color: white; 
                         padding: 15px 30px; 
                         text-decoration: none; 
@@ -246,7 +249,7 @@ class EmailService {
               If the button doesn't work, you can copy and paste this link into your browser:
             </p>
             
-            <p style="color: #667eea; font-size: 14px; word-break: break-all;">
+            <p style="color: ${BRAND_BLUE}; font-size: 14px; word-break: break-all;">
               ${resetUrl}
             </p>
             
@@ -258,8 +261,8 @@ class EmailService {
             </div>
           </div>
           
-          <div style="background: #333; padding: 20px; text-align: center;">
-            <p style="color: #999; margin: 0; font-size: 12px;">
+          <div style="background: ${BRAND_BLUE}; padding: 16px 20px; text-align: center;">
+            <p style="color: #E3F2FD; margin: 0; font-size: 12px;">
               © 2026 ${BRAND_NAME}. All rights reserved.
             </p>
           </div>
@@ -305,8 +308,8 @@ class EmailService {
     
     // School information section
     const schoolInfo = school ? `
-      <div style="background: #f0f8ff; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 4px;">
-        <h3 style="color: #333; margin: 0 0 10px 0; font-size: 16px;">🏫 School Assignment</h3>
+      <div style="background: #E3F2FD; border-left: 4px solid ${BRAND_BLUE}; padding: 15px; margin: 20px 0; border-radius: 6px;">
+        <h3 style="color: #1f2937; margin: 0 0 10px 0; font-size: 16px;">School Assignment</h3>
         <p style="color: #555; margin: 0; font-weight: bold;">${school.name}</p>
         ${school.location ? `<p style="color: #666; margin: 5px 0 0 0; font-size: 14px;">📍 ${school.location}</p>` : ''}
       </div>
@@ -318,10 +321,10 @@ class EmailService {
       attachments: getBrandLogoAttachment(),
       subject: `Welcome to ${BRAND_NAME} - Your Login Credentials`,
       html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #E5E7EB;">
           ${brandHeaderHtml()}
           
-          <div style="padding: 30px; background: #f9f9f9;">
+          <div style="padding: 30px; background: #ffffff;">
             <h2 style="color: #333; margin-bottom: 20px;">Welcome to ${BRAND_NAME}!</h2>
             
             <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
@@ -334,7 +337,7 @@ class EmailService {
             
             ${schoolInfo}
             
-            <div style="background: #fff; border: 2px solid #667eea; border-radius: 8px; padding: 20px; margin: 20px 0;">
+            <div style="background: #ffffff; border: 2px solid ${BRAND_BLUE}; border-radius: 8px; padding: 20px; margin: 20px 0;">
               <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">🔐 Your Login Credentials</h3>
               
               <div style="margin-bottom: 15px;">
@@ -348,8 +351,8 @@ class EmailService {
               </div>
             </div>
             
-            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; border-radius: 4px;">
-              <p style="color: #856404; margin: 0; font-size: 14px; line-height: 1.6;">
+            <div style="background: #FFF8E1; border-left: 4px solid ${BRAND_YELLOW}; padding: 15px; margin: 20px 0; border-radius: 6px;">
+              <p style="color: #6b4f00; margin: 0; font-size: 14px; line-height: 1.6;">
                 <strong>⚠️ Important:</strong> You will be required to change this password on your first login for security purposes.
               </p>
             </div>
@@ -360,7 +363,7 @@ class EmailService {
             
             <div style="text-align: center; margin-bottom: 30px;">
               <a href="${loginUrl}/login" 
-                 style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                 style="background: linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_GREEN} 100%); 
                         color: white; 
                         padding: 15px 30px; 
                         text-decoration: none; 
@@ -379,8 +382,8 @@ class EmailService {
             </div>
           </div>
           
-          <div style="background: #333; padding: 20px; text-align: center;">
-            <p style="color: #999; margin: 0; font-size: 12px;">
+          <div style="background: ${BRAND_BLUE}; padding: 16px 20px; text-align: center;">
+            <p style="color: #E3F2FD; margin: 0; font-size: 12px;">
               © 2026 ${BRAND_NAME}. All rights reserved.
             </p>
           </div>
