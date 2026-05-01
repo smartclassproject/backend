@@ -35,8 +35,8 @@ const getBrandLogoAttachment = () =>
     : [];
 
 const brandHeaderHtml = () => `
-  <div style="background: #ffffff; padding: 24px 24px 18px; text-align: center; border-bottom: 1px solid #e5e7eb;">
-    ${getBrandLogoSrc() ? `<img src="${getBrandLogoSrc()}" alt="${BRAND_NAME} logo" style="height: 46px; display: inline-block;" />` : `<h1 style="color: #111827; margin: 0; font-size: 28px; line-height: 1.2; font-weight: 700;">${BRAND_NAME}</h1>`}
+  <div style="background: #ffffff; padding: 24px 16px 18px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+    ${getBrandLogoSrc() ? `<img src="${getBrandLogoSrc()}" alt="${BRAND_NAME} logo" style="height: 55px; display: inline-block;" />` : `<h1 style="color: #111827; margin: 0; font-size: 28px; line-height: 1.2; font-weight: 700;">${BRAND_NAME}</h1>`}
   </div>
 `;
 
@@ -96,44 +96,66 @@ const warningCardHtml = (content) => `
  */
 class EmailService {
   constructor() {
+    this.transportConfigs = this.buildTransportConfigs();
+    this.transportConfigIndex = 0;
     this.initializeTransporter();
+  }
+
+  buildTransportConfigs() {
+    const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+    const user = process.env.EMAIL_USER;
+    const pass = process.env.EMAIL_PASS;
+    const envPort = Number(process.env.EMAIL_PORT || 587);
+    const baseTimeout = Number(process.env.EMAIL_TIMEOUT_MS || 30000);
+
+    const common = {
+      host,
+      auth: { user, pass },
+      connectionTimeout: baseTimeout,
+      greetingTimeout: Math.min(baseTimeout, 20000),
+      socketTimeout: Math.max(baseTimeout, 30000),
+      tls: { rejectUnauthorized: false },
+    };
+
+    // Try configured port first, then Gmail fallbacks (587/465) to recover from provider/network quirks.
+    const orderedPorts = Array.from(new Set([envPort, 587, 465]));
+    return orderedPorts.map((port) => ({
+      ...common,
+      port,
+      secure: port === 465,
+    }));
   }
 
   /**
    * Initialize or reinitialize the email transporter
    */
-  initializeTransporter() {
-    // Use the same configuration that works in testConnection
-    const config = {
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-      tls: { rejectUnauthorized: false }
-    };
+  initializeTransporter(config = null) {
+    const selectedConfig = config || this.transportConfigs[this.transportConfigIndex] || this.buildTransportConfigs()[0];
 
     // Log configuration for debugging
     console.log('Email service configuration:', {
-      host: config.host,
-      port: config.port,
-      secure: config.secure,
-      user: config.auth.user,
-      timeout: config.connectionTimeout
+      host: selectedConfig.host,
+      port: selectedConfig.port,
+      secure: selectedConfig.secure,
+      user: selectedConfig.auth.user,
+      timeout: selectedConfig.connectionTimeout
     });
 
     try {
-      this.transporter = nodemailer.createTransport(config);
+      this.transporter = nodemailer.createTransport(selectedConfig);
       console.log('✅ Email transporter initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize email transporter:', error.message);
       throw error;
     }
+  }
+
+  rotateTransportConfig() {
+    if (!this.transportConfigs.length) {
+      this.transportConfigs = this.buildTransportConfigs();
+    }
+    this.transportConfigIndex = (this.transportConfigIndex + 1) % this.transportConfigs.length;
+    this.initializeTransporter(this.transportConfigs[this.transportConfigIndex]);
   }
 
   /**
@@ -355,53 +377,7 @@ class EmailService {
     } catch (error) {
       console.log(`❌ Current configuration failed: ${error.message}`);
     }
-    const configs = [
-      // Config 1: Standard Gmail with TLS
-      {
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-        tls: { rejectUnauthorized: false }
-      },
-      // Config 2: Gmail with SSL
-      {
-        host: 'smtp.gmail.com',
-        port: 465,
-        secure: true,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-        tls: { rejectUnauthorized: false }
-      },
-      // Config 3: Gmail with different TLS settings
-      {
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-        connectionTimeout: 15000,
-        greetingTimeout: 10000,
-        socketTimeout: 15000,
-        tls: { 
-          rejectUnauthorized: false,
-          ciphers: 'SSLv3'
-        }
-      }
-    ];
+    const configs = this.transportConfigs.length ? this.transportConfigs : this.buildTransportConfigs();
 
     for (let i = 0; i < configs.length; i++) {
       try {
@@ -413,6 +389,7 @@ class EmailService {
         console.log(`✅ Configuration ${i + 1} works! Using this configuration.`);
         
         // Update the main transporter with the working config
+        this.transportConfigIndex = i;
         this.transporter = testTransporter;
         
         return true;
@@ -475,8 +452,8 @@ class EmailService {
           console.log(`🔄 Connection verification failed, will retry anyway: ${verifyError.message}`);
           // Try to reinitialize the transporter if verification fails
           try {
-            console.log('🔄 Attempting to reinitialize transporter...');
-            this.initializeTransporter();
+            console.log('🔄 Attempting to rotate/reinitialize transporter...');
+            this.rotateTransportConfig();
           } catch (reinitError) {
             console.log(`🔄 Transporter reinitialization failed: ${reinitError.message}`);
           }
