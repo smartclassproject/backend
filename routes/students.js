@@ -5,6 +5,20 @@ const { authorizeRoles, authorizeResourceAccess, requireModuleAccess } = require
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Student = require('../models/Student');
+const multer = require('multer');
+
+const uploadStudentImportCsv = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const name = String(file.originalname || '').toLowerCase();
+    const type = String(file.mimetype || '').toLowerCase();
+    if (name.endsWith('.csv') || type.includes('csv') || type === 'application/vnd.ms-excel') {
+      return cb(null, true);
+    }
+    return cb(new Error('Only CSV files are allowed'));
+  },
+});
 
 
 /**
@@ -257,6 +271,8 @@ router.get('/school/:schoolId/students', authorizeRoles('admin'), studentControl
  */
 router.get('/students', authorizeRoles('school_admin', 'teacher', 'school_staff'), requireModuleAccess('students'), studentController.getMySchoolStudents);
 router.get('/dependencies', authorizeRoles('school_admin', 'school_staff'), requireModuleAccess('students'), studentController.getStudentDependencies);
+router.get('/import/template', authorizeRoles('school_admin', 'school_staff'), requireModuleAccess('students'), studentController.downloadStudentImportTemplate);
+router.post('/import/csv', authorizeRoles('school_admin', 'school_staff'), requireModuleAccess('students'), uploadStudentImportCsv.single('file'), studentController.importStudentsFromCsv);
 
 /**
  * @swagger

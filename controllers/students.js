@@ -10,6 +10,7 @@ const StudentUser = require('../models/StudentUser');
 const ParentUser = require('../models/ParentUser');
 const {sendError, sendResponse} = require('../utils/response');
 const { seasonsEnabledForSchoolDoc, ENROLLMENT_SEASONS } = require('../utils/schoolEnrollment');
+const { parse } = require('csv-parse/sync');
 
 const getCreatorMeta = (req) => {
   if (!req?.user) return { createdByUserId: null, createdByRole: null, createdByModel: null };
@@ -25,6 +26,279 @@ const getCreatorMeta = (req) => {
     createdByRole: role,
     createdByModel: model,
   };
+};
+
+const IMPORT_TEMPLATE_HEADERS = [
+  'name',
+  'gender',
+  'classCode',
+  'majorCode',
+  'dateOfBirth',
+  'email',
+  'phone',
+  'parentFirstName',
+  'parentLastName',
+  'parentPhoneNumber',
+  'entryTerm',
+  'academicYear',
+  'enrollmentSeason'
+];
+
+const MAX_IMPORT_ROWS = 5000;
+
+const IMPORT_HEADER_ALIASES = {
+  name: ['name', 'names', 'studentname', 'student_name'],
+  gender: ['gender', 'sex'],
+  classCode: ['classcode', 'class_code', 'class', 'classname'],
+  majorCode: ['majorcode', 'major_code', 'major'],
+  dateOfBirth: ['dateofbirth', 'date_of_birth', 'birthday', 'birthdate', 'dob'],
+  email: ['email', 'studentemail'],
+  phone: ['phone', 'studentphone', 'phonenumber'],
+  parentFirstName: ['parentfirstname', 'parent_first_name', 'father', 'guardianfirstname'],
+  parentLastName: ['parentlastname', 'parent_last_name', 'mother', 'guardianlastname'],
+  parentPhoneNumber: ['parentphonenumber', 'parent_phone_number', 'guardianphone', 'parentphone'],
+  entryTerm: ['entryterm', 'entry_term', 'term', 'semester'],
+  academicYear: ['academicyear', 'academic_year', 'enrollmentyear', 'year'],
+  enrollmentSeason: ['enrollmentseason', 'enrollment_season', 'season', 'enrollmentsemester']
+};
+
+const normalizeHeader = (value) => String(value || '').trim().toLowerCase().replace(/[\s_-]+/g, '');
+const normalizeCell = (value) => String(value == null ? '' : value).trim();
+
+const parseCsvDate = (input) => {
+  const raw = normalizeCell(input);
+  if (!raw) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const [y, m, d] = raw.split('-').map(Number);
+    const date = new Date(Date.UTC(y, m - 1, d));
+    return Number.isNaN(date.getTime()) ? null : new Date(y, m - 1, d);
+  }
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+    const [d, m, y] = raw.split('/').map(Number);
+    const date = new Date(y, m - 1, d);
+    return Number.isNaN(date.getTime()) ? null : date;
+  }
+  return null;
+};
+
+const normalizeGender = (input) => {
+  const raw = normalizeCell(input).toLowerCase();
+  if (!raw) return '';
+  if (['m', 'male'].includes(raw)) return 'male';
+  if (['f', 'female'].includes(raw)) return 'female';
+  if (raw === 'other') return 'other';
+  if (['prefer_not_to_say', 'prefernottosay', 'prefer-not-to-say'].includes(raw)) return 'prefer_not_to_say';
+  return '';
+};
+
+const resolveImportRow = (rawRow) => {
+  const mapped = {};
+  const normalizedRow = {};
+  for (const [key, value] of Object.entries(rawRow || {})) {
+    normalizedRow[normalizeHeader(key)] = normalizeCell(value);
+  }
+  for (const [canonical, aliases] of Object.entries(IMPORT_HEADER_ALIASES)) {
+    const value = aliases.map((alias) => normalizedRow[normalizeHeader(alias)]).find((entry) => entry !== undefined);
+    mapped[canonical] = value || '';
+  }
+  return mapped;
+};
+
+exports.downloadStudentImportTemplate = async (_req, res) => {
+  const sample = [
+    'Jane Doe',
+    'female',
+    'L3BDC',
+    'CS',
+    '2009-02-15',
+    'jane.doe@student.edu',
+    '780000000',
+    'John',
+    'Doe',
+    '780000001',
+    '1',
+    String(new Date().getFullYear()),
+    'fall'
+  ];
+  const csvBody = `${IMPORT_TEMPLATE_HEADERS.join(',')}\n${sample.join(',')}\n`;
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="students-import-template.csv"');
+  return res.status(200).send(csvBody);
+};
+
+exports.importStudentsFromCsv = async (req, res) => {
+  try {
+    if (!req.user?.schoolId) return sendError(res, 400, 'School ID is required');
+    if (!req.file || !req.file.buffer) return sendError(res, 400, 'CSV file is required');
+
+    const source = req.file.buffer.toString('utf8');
+    const records = parse(source, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
+      relax_column_count: true,
+    });
+
+    if (!Array.isArray(records) || records.length === 0) {
+      return sendError(res, 400, 'CSV file has no data rows');
+    }
+    if (records.length > MAX_IMPORT_ROWS) {
+      return sendError(res, 400, `CSV row limit exceeded. Max ${MAX_IMPORT_ROWS} rows allowed`);
+    }
+
+    const school = await School.findById(req.user.schoolId);
+    if (!school) return sendError(res, 404, 'School not found');
+    const enabledSeasons = seasonsEnabledForSchoolDoc(school);
+    const defaultSeason = normalizeCell(school.defaultEnrollmentSemester).toLowerCase();
+    const fallbackSeason = enabledSeasons.includes(defaultSeason) ? defaultSeason : enabledSeasons[0];
+    const maxTerm = Math.min(Math.max(school.numberOfTerms || 3, 1), 6);
+    const creatorMeta = getCreatorMeta(req);
+
+    const [classes, majors] = await Promise.all([
+      Class.find({ schoolId: req.user.schoolId }).select('_id name code'),
+      Major.find({ schoolId: req.user.schoolId }).select('_id name code'),
+    ]);
+
+    const classLookup = new Map();
+    classes.forEach((classDoc) => {
+      classLookup.set(normalizeHeader(classDoc.code || ''), classDoc);
+      classLookup.set(normalizeHeader(classDoc.name || ''), classDoc);
+    });
+
+    const majorLookup = new Map();
+    majors.forEach((majorDoc) => {
+      majorLookup.set(normalizeHeader(majorDoc.code || ''), majorDoc);
+      majorLookup.set(normalizeHeader(majorDoc.name || ''), majorDoc);
+    });
+
+    const today = new Date();
+    const minDob = new Date(today.getFullYear() - 100, today.getMonth(), today.getDate());
+    const maxDob = new Date(today.getFullYear() - 10, today.getMonth(), today.getDate());
+
+    const results = [];
+    let createdCount = 0;
+    let validRows = 0;
+
+    for (let i = 0; i < records.length; i += 1) {
+      const rowNumber = i + 2;
+      const row = resolveImportRow(records[i]);
+      const errors = [];
+
+      const isFullyEmpty = Object.values(row).every((value) => !normalizeCell(value));
+      if (isFullyEmpty) {
+        results.push({ rowNumber, status: 'skipped', errors: ['Empty row skipped'] });
+        continue;
+      }
+
+      const name = normalizeCell(row.name);
+      const classCode = normalizeCell(row.classCode);
+      const majorCode = normalizeCell(row.majorCode);
+      const gender = normalizeGender(row.gender);
+      const dob = parseCsvDate(row.dateOfBirth);
+      const email = normalizeCell(row.email).toLowerCase();
+      const phone = normalizeCell(row.phone);
+      const parentFirstName = normalizeCell(row.parentFirstName);
+      const parentLastName = normalizeCell(row.parentLastName);
+      const parentPhoneNumber = normalizeCell(row.parentPhoneNumber);
+      const entryTermRaw = normalizeCell(row.entryTerm);
+      const academicYearRaw = normalizeCell(row.academicYear);
+      const enrollmentSeasonRaw = normalizeCell(row.enrollmentSeason).toLowerCase();
+
+      if (!name) errors.push('Name is required');
+      if (!classCode) errors.push('Class code is required');
+      if (!gender) errors.push('Gender must be one of male/female/other/prefer_not_to_say (or M/F)');
+      if (!dob) errors.push('Invalid birthday format (use YYYY-MM-DD or DD/MM/YYYY)');
+      if (dob && (dob < minDob || dob > maxDob)) errors.push('The student is not eligible to be enrolled');
+      if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) errors.push('Invalid email format');
+      if (phone && phone.length > 20) errors.push('Phone number cannot exceed 20 characters');
+      if (parentPhoneNumber && parentPhoneNumber.length > 20) errors.push('Parent phone number cannot exceed 20 characters');
+
+      const classDoc = classLookup.get(normalizeHeader(classCode));
+      if (!classDoc) errors.push(`Class code "${classCode}" not found in your school`);
+
+      let majorDoc = null;
+      if (majorCode) {
+        majorDoc = majorLookup.get(normalizeHeader(majorCode));
+        if (!majorDoc) errors.push(`Major code "${majorCode}" not found in your school`);
+      } else if (majors.length === 1) {
+        majorDoc = majors[0];
+      } else {
+        errors.push('Major code is required when your school has multiple majors');
+      }
+
+      const entryTerm = entryTermRaw ? parseInt(entryTermRaw, 10) : 1;
+      if (Number.isNaN(entryTerm) || entryTerm < 1 || entryTerm > maxTerm) {
+        errors.push(`Term must be between 1 and ${maxTerm}`);
+      }
+
+      let academicYear = academicYearRaw ? parseInt(academicYearRaw, 10) : new Date().getFullYear();
+      if (Number.isNaN(academicYear) || academicYear < 2000 || academicYear > 2100) {
+        errors.push('Academic year must be between 2000 and 2100');
+      }
+
+      const enrollmentSeason = enrollmentSeasonRaw || fallbackSeason;
+      if (!enabledSeasons.includes(enrollmentSeason)) {
+        errors.push(`Enrollment semester must be one of: ${enabledSeasons.join(', ')}`);
+      }
+
+      if (email) {
+        const existingEmail = await Student.findOne({
+          schoolId: req.user.schoolId,
+          email: email.toLowerCase(),
+        }).select('_id');
+        if (existingEmail) errors.push(`Email "${email}" is already used by another student`);
+      }
+
+      if (errors.length > 0) {
+        results.push({ rowNumber, status: 'failed', errors });
+        continue;
+      }
+
+      validRows += 1;
+      const studentId = await generateUniqueStudentId(school);
+      const student = await Student.create({
+        schoolId: req.user.schoolId,
+        name,
+        studentId,
+        majorId: majorDoc._id,
+        classId: classDoc._id,
+        class: classDoc.name,
+        dateOfBirth: dob,
+        email: email || undefined,
+        phone: phone || undefined,
+        parentFirstName: parentFirstName || undefined,
+        parentLastName: parentLastName || undefined,
+        parentPhoneNumber: parentPhoneNumber || undefined,
+        enrollmentYear: academicYear,
+        academicYear,
+        enrollmentSeason,
+        enrollmentCohortYear: academicYear,
+        entryTerm,
+        gender,
+        isActive: true,
+        ...creatorMeta,
+      });
+      await upsertStudentAndParentAccounts(student, creatorMeta);
+      createdCount += 1;
+      results.push({ rowNumber, status: 'created', studentId: student.studentId, errors: [] });
+    }
+
+    const failedCount = results.filter((r) => r.status === 'failed').length;
+    return sendResponse(res, 200, {
+      message: 'Student CSV import processed',
+      data: {
+        summary: {
+          totalRows: records.length,
+          validRows,
+          createdCount,
+          failedCount,
+        },
+        results,
+      },
+    });
+  } catch (error) {
+    return sendError(res, 500, 'Failed to import student CSV');
+  }
 };
 
 /** POST /api/students/profile-photo (see routes/studentProfilePhoto.js; legacy POST .../students/profile-photo) */
