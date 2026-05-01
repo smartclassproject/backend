@@ -258,7 +258,7 @@ router.get('/:id', authenticateToken, authorize('school_admin', 'super_admin', '
  */
 router.post('/teachers', 
   authenticateToken, 
-  authorize('school_admin'),
+  authorize('school_admin', 'school_staff'),
   requireModuleAccess('teachers'),
   [
     body('name').notEmpty().withMessage('Teacher name is required')
@@ -348,7 +348,7 @@ router.post('/teachers',
  */
 router.put('/teachers/:id', 
   authenticateToken, 
-  authorize('school_admin'),
+  authorize('school_admin', 'school_staff'),
   requireModuleAccess('teachers'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('Teacher name cannot exceed 100 characters'),
@@ -403,7 +403,7 @@ router.put('/teachers/:id',
  */
 router.delete('/teachers/:id', 
   authenticateToken, 
-  authorize('school_admin'),
+  authorize('school_admin', 'school_staff'),
   requireModuleAccess('teachers'),
   teacherController.deleteTeacher
 );

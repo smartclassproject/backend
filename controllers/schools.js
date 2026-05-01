@@ -73,11 +73,11 @@ exports.getSchoolById = async (req, res, next) => {
   }
 };
 
-// GET /api/schools/my-school - Get current user's school (school_admin only)
+// GET /api/schools/my-school - Get current user's school (school_admin/school_staff)
 exports.getMySchool = async (req, res, next) => {
   try {
     if (!req.user.schoolId) {
-      return sendError(res, 403, 'Only school admins can access their school');
+      return sendError(res, 403, 'This account cannot access a school');
     }
     const school = await School.findById(req.user.schoolId)
       .populate('studentsCount')
@@ -92,11 +92,11 @@ exports.getMySchool = async (req, res, next) => {
   }
 };
 
-// PUT /api/schools/my-school - Update current user's school (school_admin only; name, location, numberOfTerms)
+// PUT /api/schools/my-school - Update current user's school (school_admin/school_staff; name, location, numberOfTerms)
 exports.updateMySchool = async (req, res, next) => {
   try {
     if (!req.user.schoolId) {
-      return sendError(res, 403, 'Only school admins can update their school');
+      return sendError(res, 403, 'This account cannot update a school');
     }
     const {
       name,

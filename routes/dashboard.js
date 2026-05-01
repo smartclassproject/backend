@@ -52,10 +52,10 @@ const { authorize } = require('../middlewares/auth');
  *                     activeDevices:
  *                       type: integer
  */
-router.get('/overview', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getOverview);
-router.get('/summary', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getDashboardSummary);
-router.get('/graphs', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getDashboardGraphs);
-router.get('/creator-analytics', authorize(['super_admin']), dashboardController.getCreatorAnalytics);
+router.get('/overview', authorize('super_admin', 'school_admin', 'school_staff'), dashboardController.getOverview);
+router.get('/summary', authorize('super_admin', 'school_admin', 'school_staff'), dashboardController.getDashboardSummary);
+router.get('/graphs', authorize('super_admin', 'school_admin', 'school_staff'), dashboardController.getDashboardGraphs);
+router.get('/creator-analytics', authorize('super_admin'), dashboardController.getCreatorAnalytics);
 
 /**
  * @swagger
@@ -123,7 +123,7 @@ router.get('/creator-analytics', authorize(['super_admin']), dashboardController
  *                           rate:
  *                             type: number
  */
-router.get('/attendance-stats', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getAttendanceStats);
+router.get('/attendance-stats', authorize('super_admin', 'school_admin', 'school_staff'), dashboardController.getAttendanceStats);
 
 /**
  * @swagger
@@ -180,7 +180,7 @@ router.get('/attendance-stats', authorize(['super_admin', 'school_admin', 'schoo
  *                           count:
  *                             type: integer
  */
-router.get('/student-stats', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getStudentStats);
+router.get('/student-stats', authorize('super_admin', 'school_admin', 'school_staff'), dashboardController.getStudentStats);
 
 /**
  * @swagger
@@ -227,7 +227,7 @@ router.get('/student-stats', authorize(['super_admin', 'school_admin', 'school_s
  *                           active:
  *                             type: integer
  */
-router.get('/device-stats', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getDeviceStats);
+router.get('/device-stats', authorize('super_admin', 'school_admin', 'school_staff'), dashboardController.getDeviceStats);
 
 /**
  * @swagger
@@ -275,7 +275,7 @@ router.get('/device-stats', authorize(['super_admin', 'school_admin', 'school_st
  *                       details:
  *                         type: object
  */
-router.get('/recent-activity', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getRecentActivity);
+router.get('/recent-activity', authorize('super_admin', 'school_admin', 'school_staff'), dashboardController.getRecentActivity);
 
 /**
  * @swagger
@@ -335,7 +335,7 @@ router.get('/recent-activity', authorize(['super_admin', 'school_admin', 'school
  *                       items:
  *                         type: object
  */
-router.get('/attendance-report', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.generateAttendanceReport);
+router.get('/attendance-report', authorize('super_admin', 'school_admin', 'school_staff'), dashboardController.generateAttendanceReport);
 
 /**
  * @swagger
@@ -382,6 +382,6 @@ router.get('/attendance-report', authorize(['super_admin', 'school_admin', 'scho
  *                     filename:
  *                       type: string
  */
-router.post('/export-data', authorize(['super_admin', 'school_admin']), dashboardController.exportData);
+router.post('/export-data', authorize('super_admin', 'school_admin'), dashboardController.exportData);
 
 module.exports = router; 
