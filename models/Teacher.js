@@ -92,6 +92,21 @@ const teacherSchema = new mongoose.Schema({
     nullable: true,
     maxlength: [200, 'Specialization cannot exceed 200 characters']
   },
+  createdByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null,
+    index: true
+  },
+  createdByRole: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  createdByModel: {
+    type: String,
+    default: null,
+    trim: true
+  },
   isActive: {
     type: Boolean,
     default: true

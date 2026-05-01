@@ -10,7 +10,8 @@ const announcementSchema = new mongoose.Schema({
   isPinned: { type: Boolean, default: false },
   isActive: { type: Boolean, default: true },
   createdBy: { type: mongoose.Schema.Types.ObjectId, refPath: 'createdByModel', required: true },
-  createdByModel: { type: String, enum: ['AdminUser', 'TeacherUser'], default: 'AdminUser' }
+  createdByModel: { type: String, enum: ['AdminUser', 'TeacherUser', 'SchoolStaff'], default: 'AdminUser' },
+  createdByRole: { type: String, default: null, trim: true }
 }, { timestamps: true });
 
 announcementSchema.index({ schoolId: 1, isActive: 1, publishAt: -1 });

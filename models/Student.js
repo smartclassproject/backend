@@ -196,6 +196,21 @@ const studentSchema = new mongoose.Schema({
     trim: true,
     nullable: true
   },
+  createdByUserId: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null,
+    index: true
+  },
+  createdByRole: {
+    type: String,
+    default: null,
+    trim: true
+  },
+  createdByModel: {
+    type: String,
+    default: null,
+    trim: true
+  },
   isActive: {
     type: Boolean,
     default: true

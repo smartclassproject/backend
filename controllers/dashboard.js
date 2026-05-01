@@ -4,6 +4,8 @@ const Course = require('../models/Course');
 const Device = require('../models/Device');
 const Attendance = require('../models/Attendance');
 const Major = require('../models/Major');
+const Announcement = require('../models/Announcement');
+const Inquiry = require('../models/Inquiry');
 const { sendResponse, sendError } = require('../utils/response');
 
 /**
@@ -15,7 +17,7 @@ const getOverview = async (req, res) => {
     
     // Determine target school
     let targetSchoolId = schoolId;
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       targetSchoolId = req.user.schoolId;
     }
 
@@ -87,6 +89,126 @@ const getOverview = async (req, res) => {
   }
 };
 
+const resolveDashboardScope = (req) => {
+  const isSuperAdmin = req.user.role === 'super_admin';
+  const schoolId = isSuperAdmin ? (req.query.schoolId || null) : req.user.schoolId;
+  const schoolFilter = schoolId ? { schoolId } : {};
+  const allowedModules =
+    req.user.role === 'school_staff'
+      ? Array.isArray(req.user.modules) ? req.user.modules : []
+      : ['students', 'teachers', 'courses', 'announcements', 'inquiries', 'reports', 'finance'];
+  return { schoolFilter, allowedModules, isSuperAdmin };
+};
+
+const withModule = (allowedModules, moduleKey, payload) =>
+  allowedModules.includes(moduleKey) ? payload : null;
+
+const getLastMonths = (count = 6) => {
+  const months = [];
+  const now = new Date();
+  for (let i = count - 1; i >= 0; i -= 1) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    months.push({ key, label: d.toLocaleString('en-US', { month: 'short' }) });
+  }
+  return months;
+};
+
+const monthlyCount = async (Model, schoolFilter) => {
+  const months = getLastMonths(6);
+  const start = new Date(`${months[0].key}-01T00:00:00.000Z`);
+  const docs = await Model.aggregate([
+    { $match: { ...schoolFilter, createdAt: { $gte: start } } },
+    {
+      $project: {
+        month: {
+          $dateToString: { format: '%Y-%m', date: '$createdAt' }
+        }
+      }
+    },
+    { $group: { _id: '$month', count: { $sum: 1 } } }
+  ]);
+  const map = new Map(docs.map((d) => [d._id, d.count]));
+  return months.map((m) => ({ month: m.label, value: map.get(m.key) || 0 }));
+};
+
+const getDashboardSummary = async (req, res) => {
+  try {
+    const { schoolFilter, allowedModules } = resolveDashboardScope(req);
+    const [students, teachers, courses, announcements, inquiries] = await Promise.all([
+      Student.countDocuments(schoolFilter),
+      Teacher.countDocuments(schoolFilter),
+      Course.countDocuments(schoolFilter),
+      Announcement.countDocuments(schoolFilter),
+      Inquiry.countDocuments(schoolFilter),
+    ]);
+
+    const sections = {};
+    if (withModule(allowedModules, 'students', true)) sections.students = { total: students, label: 'Total Students' };
+    if (withModule(allowedModules, 'teachers', true)) sections.teachers = { total: teachers, label: 'Total Teachers' };
+    if (withModule(allowedModules, 'courses', true)) sections.courses = { total: courses, label: 'Total Courses' };
+    if (withModule(allowedModules, 'announcements', true)) sections.announcements = { total: announcements, label: 'Total Announcements' };
+    if (withModule(allowedModules, 'inquiries', true)) sections.inquiries = { total: inquiries, label: 'Total Inquiries' };
+
+    return sendResponse(res, 200, { data: { sections, allowedModules } });
+  } catch (error) {
+    return sendError(res, 500, 'Error fetching dashboard summary', error);
+  }
+};
+
+const getDashboardGraphs = async (req, res) => {
+  try {
+    const { schoolFilter, allowedModules } = resolveDashboardScope(req);
+    const graphs = {};
+    if (allowedModules.includes('students')) graphs.students = await monthlyCount(Student, schoolFilter);
+    if (allowedModules.includes('teachers')) graphs.teachers = await monthlyCount(Teacher, schoolFilter);
+    if (allowedModules.includes('courses')) graphs.courses = await monthlyCount(Course, schoolFilter);
+    if (allowedModules.includes('announcements')) graphs.announcements = await monthlyCount(Announcement, schoolFilter);
+    if (allowedModules.includes('inquiries')) graphs.inquiries = await monthlyCount(Inquiry, schoolFilter);
+    return sendResponse(res, 200, { data: { graphs, allowedModules } });
+  } catch (error) {
+    return sendError(res, 500, 'Error fetching dashboard graphs', error);
+  }
+};
+
+const getCreatorAnalytics = async (req, res) => {
+  try {
+    if (req.user.role !== 'super_admin') {
+      return sendError(res, 403, 'Access denied');
+    }
+    const [teacherCreators, studentCreators, announcementCreators] = await Promise.all([
+      Teacher.aggregate([{ $match: { createdByRole: { $ne: null } } }, { $group: { _id: '$createdByRole', count: { $sum: 1 } } }]),
+      Student.aggregate([{ $match: { createdByRole: { $ne: null } } }, { $group: { _id: '$createdByRole', count: { $sum: 1 } } }]),
+      Announcement.aggregate([{ $match: { createdByRole: { $ne: null } } }, { $group: { _id: '$createdByRole', count: { $sum: 1 } } }]),
+    ]);
+
+    const roleTotals = {};
+    [...teacherCreators, ...studentCreators, ...announcementCreators].forEach((row) => {
+      const key = row._id || 'unknown';
+      roleTotals[key] = (roleTotals[key] || 0) + row.count;
+    });
+
+    const recentCreated = await Promise.all([
+      Teacher.find().sort({ createdAt: -1 }).limit(5).select('name createdAt createdByRole createdByModel'),
+      Student.find().sort({ createdAt: -1 }).limit(5).select('name studentId createdAt createdByRole createdByModel'),
+      Announcement.find().sort({ createdAt: -1 }).limit(5).select('title createdAt createdByRole createdByModel'),
+    ]);
+
+    return sendResponse(res, 200, {
+      data: {
+        countsByCreatorRole: Object.entries(roleTotals).map(([role, count]) => ({ role, count })),
+        recentCreated: {
+          teachers: recentCreated[0],
+          students: recentCreated[1],
+          announcements: recentCreated[2],
+        }
+      }
+    });
+  } catch (error) {
+    return sendError(res, 500, 'Error fetching creator analytics', error);
+  }
+};
+
 /**
  * Get attendance statistics
  */
@@ -101,7 +223,7 @@ const getAttendanceStats = async (req, res) => {
     
     // Determine target school
     let targetSchoolId = schoolId;
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       targetSchoolId = req.user.schoolId;
     }
 
@@ -193,7 +315,7 @@ const getStudentStats = async (req, res) => {
     
     // Determine target school
     let targetSchoolId = schoolId;
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       targetSchoolId = req.user.schoolId;
     }
 
@@ -274,7 +396,7 @@ const getDeviceStats = async (req, res) => {
     
     // Determine target school
     let targetSchoolId = schoolId;
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       targetSchoolId = req.user.schoolId;
     }
 
@@ -332,7 +454,7 @@ const getRecentActivity = async (req, res) => {
     
     // Determine target school
     let targetSchoolId = schoolId;
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       targetSchoolId = req.user.schoolId;
     }
 
@@ -381,7 +503,7 @@ const generateAttendanceReport = async (req, res) => {
     
     // Determine target school
     let targetSchoolId = schoolId;
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       targetSchoolId = req.user.schoolId;
     }
 
@@ -466,7 +588,7 @@ const exportData = async (req, res) => {
     
     // Determine target school
     let targetSchoolId = filters.schoolId;
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       targetSchoolId = req.user.schoolId;
     }
 
@@ -525,6 +647,9 @@ const exportData = async (req, res) => {
 
 module.exports = {
   getOverview,
+  getDashboardSummary,
+  getDashboardGraphs,
+  getCreatorAnalytics,
   getAttendanceStats,
   getStudentStats,
   getDeviceStats,

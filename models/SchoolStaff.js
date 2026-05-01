@@ -42,6 +42,11 @@ const schoolStaffSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    profileUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
     password: {
       type: String,
       required: true,

@@ -256,6 +256,7 @@ router.get('/school/:schoolId/students', authorizeRoles('admin'), studentControl
  *         description: Internal server error
  */
 router.get('/students', authorizeRoles('school_admin', 'teacher', 'school_staff'), requireModuleAccess('students'), studentController.getMySchoolStudents);
+router.get('/dependencies', authorizeRoles('school_admin', 'school_staff'), requireModuleAccess('students'), studentController.getStudentDependencies);
 
 /**
  * @swagger
@@ -340,7 +341,7 @@ router.get('/students/:id', authorizeRoles('school_admin', 'super_admin', 'schoo
  *       500:
  *         description: Internal server error
  */
-router.post('/students', authorizeRoles('school_admin'),
+router.post('/students', authorizeRoles('school_admin', 'school_staff'),
   requireModuleAccess('students'),
   [
     body('name').notEmpty().withMessage('Student name is required')
@@ -456,7 +457,7 @@ router.post('/students', authorizeRoles('school_admin'),
  */
 router.put('/students/:id',
 
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
   requireModuleAccess('students'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
@@ -529,7 +530,7 @@ router.put('/students/:id',
  *         description: Internal server error
  */
 router.delete('/students/:id',
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
   requireModuleAccess('students'),
   studentController.deleteStudent
 );

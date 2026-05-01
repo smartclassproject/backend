@@ -52,7 +52,10 @@ const { authorize } = require('../middlewares/auth');
  *                     activeDevices:
  *                       type: integer
  */
-router.get('/overview', authorize(['super_admin', 'school_admin']), dashboardController.getOverview);
+router.get('/overview', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getOverview);
+router.get('/summary', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getDashboardSummary);
+router.get('/graphs', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getDashboardGraphs);
+router.get('/creator-analytics', authorize(['super_admin']), dashboardController.getCreatorAnalytics);
 
 /**
  * @swagger
@@ -120,7 +123,7 @@ router.get('/overview', authorize(['super_admin', 'school_admin']), dashboardCon
  *                           rate:
  *                             type: number
  */
-router.get('/attendance-stats', authorize(['super_admin', 'school_admin']), dashboardController.getAttendanceStats);
+router.get('/attendance-stats', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getAttendanceStats);
 
 /**
  * @swagger
@@ -177,7 +180,7 @@ router.get('/attendance-stats', authorize(['super_admin', 'school_admin']), dash
  *                           count:
  *                             type: integer
  */
-router.get('/student-stats', authorize(['super_admin', 'school_admin']), dashboardController.getStudentStats);
+router.get('/student-stats', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getStudentStats);
 
 /**
  * @swagger
@@ -224,7 +227,7 @@ router.get('/student-stats', authorize(['super_admin', 'school_admin']), dashboa
  *                           active:
  *                             type: integer
  */
-router.get('/device-stats', authorize(['super_admin', 'school_admin']), dashboardController.getDeviceStats);
+router.get('/device-stats', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getDeviceStats);
 
 /**
  * @swagger
@@ -272,7 +275,7 @@ router.get('/device-stats', authorize(['super_admin', 'school_admin']), dashboar
  *                       details:
  *                         type: object
  */
-router.get('/recent-activity', authorize(['super_admin', 'school_admin']), dashboardController.getRecentActivity);
+router.get('/recent-activity', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.getRecentActivity);
 
 /**
  * @swagger
@@ -332,7 +335,7 @@ router.get('/recent-activity', authorize(['super_admin', 'school_admin']), dashb
  *                       items:
  *                         type: object
  */
-router.get('/attendance-report', authorize(['super_admin', 'school_admin']), dashboardController.generateAttendanceReport);
+router.get('/attendance-report', authorize(['super_admin', 'school_admin', 'school_staff']), dashboardController.generateAttendanceReport);
 
 /**
  * @swagger

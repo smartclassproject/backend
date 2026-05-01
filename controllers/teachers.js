@@ -4,6 +4,22 @@ const PDFDocument = require('pdfkit');
 const bcrypt = require('bcryptjs');
 const {  sendError, sendResponse} = require('../utils/response');
 
+const getCreatorMeta = (req) => {
+  if (!req?.user) return { createdByUserId: null, createdByRole: null, createdByModel: null };
+  const role = req.user.role || req.user.userType || null;
+  const model =
+    role === 'school_staff'
+      ? 'SchoolStaff'
+      : role === 'teacher'
+        ? 'TeacherUser'
+        : 'AdminUser';
+  return {
+    createdByUserId: req.user._id || null,
+    createdByRole: role,
+    createdByModel: model,
+  };
+};
+
 // GET /api/teachers - Get all teachers with pagination, search and filters
 exports.getAllTeachers = async (req, res) => {
   try {
@@ -117,7 +133,8 @@ exports.createTeacher = async (req, res) => {
       phone,
       profileUrl,
       department,
-      specialization
+      specialization,
+      ...getCreatorMeta(req),
     });
 
     await teacher.save();

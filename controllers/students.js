@@ -11,6 +11,22 @@ const ParentUser = require('../models/ParentUser');
 const {sendError, sendResponse} = require('../utils/response');
 const { seasonsEnabledForSchoolDoc, ENROLLMENT_SEASONS } = require('../utils/schoolEnrollment');
 
+const getCreatorMeta = (req) => {
+  if (!req?.user) return { createdByUserId: null, createdByRole: null, createdByModel: null };
+  const role = req.user.role || req.user.userType || null;
+  const model =
+    role === 'school_staff'
+      ? 'SchoolStaff'
+      : role === 'teacher'
+        ? 'TeacherUser'
+        : 'AdminUser';
+  return {
+    createdByUserId: req.user._id || null,
+    createdByRole: role,
+    createdByModel: model,
+  };
+};
+
 /** POST /api/students/profile-photo (see routes/studentProfilePhoto.js; legacy POST .../students/profile-photo) */
 exports.uploadStudentPhoto = async (req, res) => {
   try {
@@ -24,14 +40,19 @@ exports.uploadStudentPhoto = async (req, res) => {
   }
 };
 
-const upsertStudentAndParentAccounts = async (studentDoc) => {
+const upsertStudentAndParentAccounts = async (studentDoc, actorMeta = {}) => {
   await StudentUser.findOneAndUpdate(
     { studentIdRef: studentDoc._id },
     {
-      schoolId: studentDoc.schoolId,
-      studentIdRef: studentDoc._id,
-      studentId: studentDoc.studentId,
-      isActive: !!studentDoc.isActive
+      $set: {
+        schoolId: studentDoc.schoolId,
+        studentIdRef: studentDoc._id,
+        studentId: studentDoc.studentId,
+        isActive: !!studentDoc.isActive,
+      },
+      $setOnInsert: {
+        ...actorMeta,
+      }
     },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
@@ -40,16 +61,46 @@ const upsertStudentAndParentAccounts = async (studentDoc) => {
     await ParentUser.findOneAndUpdate(
       { studentIdRef: studentDoc._id, firstName: studentDoc.parentFirstName.trim() },
       {
-        schoolId: studentDoc.schoolId,
-        studentIdRef: studentDoc._id,
-        studentId: studentDoc.studentId,
-        firstName: studentDoc.parentFirstName.trim(),
-        lastName: studentDoc.parentLastName || '',
-        phoneNumber: studentDoc.parentPhoneNumber || '',
-        isActive: !!studentDoc.isActive
+        $set: {
+          schoolId: studentDoc.schoolId,
+          studentIdRef: studentDoc._id,
+          studentId: studentDoc.studentId,
+          firstName: studentDoc.parentFirstName.trim(),
+          lastName: studentDoc.parentLastName || '',
+          phoneNumber: studentDoc.parentPhoneNumber || '',
+          isActive: !!studentDoc.isActive,
+        },
+        $setOnInsert: {
+          ...actorMeta,
+        }
       },
       { upsert: true, new: true, setDefaultsOnInsert: true }
     );
+  }
+};
+
+// GET /api/students/dependencies - Get lookup data needed by student forms
+exports.getStudentDependencies = async (req, res) => {
+  try {
+    if (!req.user?.schoolId) {
+      return sendError(res, 400, 'School ID is required');
+    }
+
+    const schoolId = req.user.schoolId;
+    const [majors, classes] = await Promise.all([
+      Major.find({ schoolId }).select('_id name code').sort({ name: 1 }),
+      Class.find({ schoolId }).select('_id name code').sort({ name: 1 }),
+    ]);
+
+    return sendResponse(res, 200, {
+      message: 'Student dependencies retrieved successfully',
+      data: {
+        majors,
+        classes,
+      },
+    });
+  } catch (error) {
+    return sendError(res, 500, 'Internal server error');
   }
 };
 
@@ -284,6 +335,7 @@ exports.createStudent = async (req, res) => {
       return sendError(res, 400, 'Enrollment cohort year is required (2000–2100), or send academicYear / enrollmentYear');
     }
 
+    const creatorMeta = getCreatorMeta(req);
     const student = new Student({
       schoolId,
       name,
@@ -306,11 +358,12 @@ exports.createStudent = async (req, res) => {
       parentPhoneNumber,
       profileUrl,
       enrollmentDate: resolvedEnrollmentDate,
-      isActive: isActive !== undefined ? !!isActive : true
+      isActive: isActive !== undefined ? !!isActive : true,
+      ...creatorMeta,
     });
 
     await student.save();
-    await upsertStudentAndParentAccounts(student);
+    await upsertStudentAndParentAccounts(student, creatorMeta);
 
     const populatedStudent = await Student.findById(student._id)
       .populate('majorId', 'name code')
@@ -482,7 +535,7 @@ exports.updateStudent = async (req, res) => {
     if (enrollmentDate !== undefined) student.enrollmentDate = new Date(enrollmentDate);
     
     await student.save();
-    await upsertStudentAndParentAccounts(student);
+    await upsertStudentAndParentAccounts(student, getCreatorMeta(req));
 
     const updatedStudent = await Student.findById(student._id)
       .populate('majorId', 'name code')

@@ -43,7 +43,8 @@ exports.createAnnouncement = async (req, res) => {
       expiresAt: expiresAt ? new Date(expiresAt) : undefined,
       isPinned,
       createdBy: req.user._id,
-      createdByModel: req.user.role === 'school_staff' ? 'SchoolStaff' : 'AdminUser'
+      createdByModel: req.user.role === 'school_staff' ? 'SchoolStaff' : 'AdminUser',
+      createdByRole: req.user.role
     });
     return sendResponse(res, 201, { message: 'Announcement created successfully', data: item });
   } catch (error) {
