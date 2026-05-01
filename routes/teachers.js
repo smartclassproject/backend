@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const teacherController = require('../controllers/teachers');
-const { authenticateToken, authorizeResourceAccess, authorize } = require('../middlewares/auth');
+const { authenticateToken, authorizeResourceAccess, authorize, requireModuleAccess } = require('../middlewares/auth');
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Teacher = require('../models/Teacher');
@@ -146,7 +146,7 @@ router.get('/school/teachers', authenticateToken, authorize('super_admin'), teac
  *       500:
  *         description: Internal server error
  */
-router.get('/teachers', authenticateToken, authorize('school_admin'), teacherController.getMySchoolTeachers);
+router.get('/teachers', authenticateToken, authorize('school_admin', 'school_staff'), requireModuleAccess('teachers'), teacherController.getMySchoolTeachers);
 
 /**
  * @swagger
@@ -187,7 +187,7 @@ router.get('/teachers', authenticateToken, authorize('school_admin'), teacherCon
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', authenticateToken, authorize('school_admin', 'super_admin'), teacherController.getTeacherById);
+router.get('/:id', authenticateToken, authorize('school_admin', 'super_admin', 'school_staff'), requireModuleAccess('teachers'), teacherController.getTeacherById);
 
 /**
  * @swagger
@@ -259,6 +259,7 @@ router.get('/:id', authenticateToken, authorize('school_admin', 'super_admin'), 
 router.post('/teachers', 
   authenticateToken, 
   authorize('school_admin'),
+  requireModuleAccess('teachers'),
   [
     body('name').notEmpty().withMessage('Teacher name is required')
       .isLength({ max: 100 }).withMessage('Teacher name cannot exceed 100 characters'),
@@ -348,6 +349,7 @@ router.post('/teachers',
 router.put('/teachers/:id', 
   authenticateToken, 
   authorize('school_admin'),
+  requireModuleAccess('teachers'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('Teacher name cannot exceed 100 characters'),
     body('email').optional().isEmail().withMessage('Please enter a valid email'),
@@ -402,6 +404,7 @@ router.put('/teachers/:id',
 router.delete('/teachers/:id', 
   authenticateToken, 
   authorize('school_admin'),
+  requireModuleAccess('teachers'),
   teacherController.deleteTeacher
 );
 

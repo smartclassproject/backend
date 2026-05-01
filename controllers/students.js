@@ -69,7 +69,7 @@ exports.getAllStudents = async (req, res) => {
     const query = {};
     
     // School admin can only see their school's students
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       query.schoolId = req.user.schoolId;
     }
 
@@ -213,11 +213,11 @@ exports.createStudent = async (req, res) => {
       return sendError(res, 404, 'Major not found');
     }
 
-    if (req.user.role === 'school_admin' && major.schoolId.toString() !== req.user.schoolId.toString()) {
+    if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && major.schoolId.toString() !== req.user.schoolId.toString()) {
       return sendError(res, 403, 'Major does not belong to your school');
     }
 
-    const schoolId = req.user.role === 'school_admin' ? req.user.schoolId : major.schoolId;
+    const schoolId = (req.user.role === 'school_admin' || req.user.role === 'school_staff') ? req.user.schoolId : major.schoolId;
 
     const schoolDoc = await School.findById(schoolId);
     if (!schoolDoc) {
@@ -225,7 +225,7 @@ exports.createStudent = async (req, res) => {
     }
 
     let finalStudentId;
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       finalStudentId = await generateUniqueStudentId(schoolDoc);
     } else if (bodyStudentId && String(bodyStudentId).trim()) {
       const sid = String(bodyStudentId).trim();
@@ -381,7 +381,7 @@ exports.updateStudent = async (req, res) => {
         return sendError(res, 404, 'Major not found');
       }
 
-      if (req.user.role === 'school_admin' && major.schoolId.toString() !== req.user.schoolId.toString()) {
+      if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && major.schoolId.toString() !== req.user.schoolId.toString()) {
         return sendError(res, 403, 'Major does not belong to your school');
       }
     }
@@ -527,7 +527,7 @@ exports.exportStudentsToPDF = async (req, res) => {
     // Build query based on user role
     const query = {};
     
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       query.schoolId = req.user.schoolId;
     }
 

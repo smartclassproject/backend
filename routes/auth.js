@@ -178,14 +178,14 @@ router.get('/session', authenticateToken, authController.session);
 router.get(
   '/profile',
   authenticateToken,
-  authorizeRoles('super_admin', 'school_admin', 'teacher'),
+  authorizeRoles('super_admin', 'school_admin', 'teacher', 'school_staff'),
   profileController.getProfile
 );
 
 router.patch(
   '/profile',
   authenticateToken,
-  authorizeRoles('super_admin', 'school_admin', 'teacher'),
+  authorizeRoles('super_admin', 'school_admin', 'teacher', 'school_staff'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('Name is too long'),
     body('phone').optional().isLength({ max: 30 }).withMessage('Phone is too long'),
@@ -201,7 +201,7 @@ router.patch(
 router.put(
   '/profile/password',
   authenticateToken,
-  authorizeRoles('super_admin', 'school_admin', 'teacher'),
+  authorizeRoles('super_admin', 'school_admin', 'teacher', 'school_staff'),
   [
     body('currentPassword').notEmpty().withMessage('Current password is required'),
     body('newPassword').isLength({ min: 4 }).withMessage('New password must be at least 4 characters')
@@ -213,7 +213,7 @@ router.put(
 router.post(
   '/profile/photo',
   authenticateToken,
-  authorizeRoles('super_admin', 'school_admin', 'teacher'),
+  authorizeRoles('super_admin', 'school_admin', 'teacher', 'school_staff'),
   profilePhotoUpload,
   profileController.uploadProfilePhoto
 );

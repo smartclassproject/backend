@@ -6,7 +6,7 @@ exports.getAnnouncements = async (req, res) => {
     const now = new Date();
     const query = { isActive: true };
 
-    if (req.user.role === 'school_admin' || req.user.role === 'teacher') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff' || req.user.role === 'teacher') {
       query.schoolId = req.user.schoolId;
       if (req.user.role === 'teacher') {
         query.$or = [{ targetAudience: { $in: ['ALL'] } }, { targetAudience: { $in: ['TEACHERS'] } }];
@@ -43,7 +43,7 @@ exports.createAnnouncement = async (req, res) => {
       expiresAt: expiresAt ? new Date(expiresAt) : undefined,
       isPinned,
       createdBy: req.user._id,
-      createdByModel: 'AdminUser'
+      createdByModel: req.user.role === 'school_staff' ? 'SchoolStaff' : 'AdminUser'
     });
     return sendResponse(res, 201, { message: 'Announcement created successfully', data: item });
   } catch (error) {

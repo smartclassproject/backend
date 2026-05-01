@@ -35,9 +35,59 @@ const getBrandLogoAttachment = () =>
     : [];
 
 const brandHeaderHtml = () => `
-  <div style="background: linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_GREEN} 100%); padding: 24px 20px; text-align: center;">
-    ${getBrandLogoSrc() ? `<img src="${getBrandLogoSrc()}" alt="${BRAND_NAME} logo" style="height: 46px; margin-bottom: 10px;" />` : ''}
-    <h1 style="color: white; margin: 0; font-size: 42px; line-height: 1.1;">${BRAND_NAME}</h1>
+  <div style="background: #ffffff; padding: 24px 24px 18px; text-align: center; border-bottom: 1px solid #e5e7eb;">
+    ${getBrandLogoSrc() ? `<img src="${getBrandLogoSrc()}" alt="${BRAND_NAME} logo" style="height: 46px; display: inline-block;" />` : `<h1 style="color: #111827; margin: 0; font-size: 28px; line-height: 1.2; font-weight: 700;">${BRAND_NAME}</h1>`}
+  </div>
+`;
+
+const emailShellHtml = ({ title, intro, body, ctaLabel, ctaUrl, helpText, footerNote }) => `
+  <div style="margin: 0; padding: 24px 12px; background: #f3f6fb; font-family: Arial, Helvetica, sans-serif;">
+    <div style="max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 14px; overflow: hidden;">
+      ${brandHeaderHtml()}
+
+      <div style="padding: 28px 24px;">
+        <h2 style="margin: 0 0 12px 0; color: #111827; font-size: 24px; font-weight: 700;">${title}</h2>
+        ${intro ? `<p style="margin: 0 0 16px 0; color: #374151; font-size: 15px; line-height: 1.65;">${intro}</p>` : ''}
+        ${body}
+
+        ${ctaUrl ? `
+          <div style="margin: 26px 0 20px; text-align: center;">
+            <a href="${ctaUrl}" style="display: inline-block; padding: 12px 24px; border-radius: 8px; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; background: ${BRAND_BLUE};">
+              ${ctaLabel}
+            </a>
+          </div>
+        ` : ''}
+
+        ${ctaUrl ? `
+          <div style="margin: 0 0 20px;">
+            <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px;">If the button does not work, copy this link:</p>
+            <p style="margin: 0; color: ${BRAND_BLUE}; font-size: 12px; line-height: 1.55; word-break: break-all;">${ctaUrl}</p>
+          </div>
+        ` : ''}
+
+        ${helpText ? `
+          <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid #e5e7eb;">
+            <p style="margin: 0; color: #6b7280; font-size: 12px; line-height: 1.55;">${helpText}</p>
+          </div>
+        ` : ''}
+      </div>
+
+      <div style="background: #f9fafb; border-top: 1px solid #e5e7eb; padding: 14px 20px; text-align: center;">
+        <p style="margin: 0; color: #6b7280; font-size: 12px;">${footerNote || `© 2026 ${BRAND_NAME}. All rights reserved.`}</p>
+      </div>
+    </div>
+  </div>
+`;
+
+const infoCardHtml = (content) => `
+  <div style="background: #f8fbff; border: 1px solid #dbeafe; border-radius: 10px; padding: 14px 14px; margin: 16px 0;">
+    ${content}
+  </div>
+`;
+
+const warningCardHtml = (content) => `
+  <div style="background: #fff8e8; border: 1px solid #fde68a; border-radius: 10px; padding: 12px 14px; margin: 16px 0;">
+    <p style="margin: 0; color: #6b4f00; font-size: 13px; line-height: 1.55;">${content}</p>
   </div>
 `;
 
@@ -103,76 +153,33 @@ class EmailService {
     const setupUrl = `${process.env.FRONTEND_PASSWORD_SETUP_URL}?token=${token}`;
     
     // School information section
-    const schoolInfo = school ? `
-      <div style="background: #E3F2FD; border-left: 4px solid ${BRAND_BLUE}; padding: 15px; margin: 20px 0; border-radius: 6px;">
-        <h3 style="color: #1f2937; margin: 0 0 10px 0; font-size: 16px;">School Assignment</h3>
-        <p style="color: #555; margin: 0; font-weight: bold;">${school.name}</p>
-        ${school.location ? `<p style="color: #666; margin: 5px 0 0 0; font-size: 14px;">📍 ${school.location}</p>` : ''}
-      </div>
-    ` : '';
+    const schoolInfo = school ? infoCardHtml(`
+      <p style="margin: 0 0 8px 0; color: #1f2937; font-weight: 700; font-size: 14px;">School Assignment</p>
+      <p style="margin: 0; color: #374151; font-size: 14px;"><strong>${school.name}</strong></p>
+      ${school.location ? `<p style="margin: 6px 0 0 0; color: #6b7280; font-size: 13px;">${school.location}</p>` : ''}
+    `) : '';
     
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: to,
       attachments: getBrandLogoAttachment(),
       subject: `Welcome to ${BRAND_NAME} - Set Up Your Password`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #E5E7EB;">
-          ${brandHeaderHtml()}
-          
-          <div style="padding: 30px; background: #ffffff;">
-            <h2 style="color: #333; margin-bottom: 20px;">Welcome to ${BRAND_NAME}!</h2>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Hello ${firstName},
-            </p>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Your account has been created successfully as a <strong>${role.replace('_', ' ')}</strong> in the ${BRAND_NAME} system.
-            </p>
-            
-            ${schoolInfo}
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 30px;">
-              To complete your account setup, please click the button below to set up your password:
-            </p>
-            
-            <div style="text-align: center; margin-bottom: 30px;">
-              <a href="${setupUrl}" 
-                 style="background: linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_GREEN} 100%); 
-                        color: white; 
-                        padding: 15px 30px; 
-                        text-decoration: none; 
-                        border-radius: 5px; 
-                        display: inline-block; 
-                        font-weight: bold;">
-                Set Up Password
-              </a>
-            </div>
-            
-            <p style="color: #999; font-size: 14px; margin-bottom: 20px;">
-              If the button doesn't work, you can copy and paste this link into your browser:
-            </p>
-            
-            <p style="color: ${BRAND_BLUE}; font-size: 14px; word-break: break-all;">
-              ${setupUrl}
-            </p>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-              <p style="color: #999; font-size: 12px; margin: 0;">
-                This link will expire in ${process.env.PASSWORD_RESET_EXPIRES_IN || '1 hour'}.<br>
-                If you didn't request this email, please ignore it.
-              </p>
-            </div>
-          </div>
-          
-          <div style="background: ${BRAND_BLUE}; padding: 16px 20px; text-align: center;">
-            <p style="color: #E3F2FD; margin: 0; font-size: 12px;">
-              © 2026 ${BRAND_NAME}. All rights reserved.
-            </p>
-          </div>
-        </div>
-      `,
+      html: emailShellHtml({
+        title: `Welcome to ${BRAND_NAME}!`,
+        intro: `Hello ${firstName},`,
+        body: `
+          <p style="margin: 0 0 14px 0; color: #374151; font-size: 15px; line-height: 1.65;">
+            Your account has been created successfully as a <strong>${role.replace('_', ' ')}</strong> in the ${BRAND_NAME} system.
+          </p>
+          ${schoolInfo}
+          <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.65;">
+            To complete your account setup, please set your password.
+          </p>
+        `,
+        ctaLabel: 'Set Up Password',
+        ctaUrl: setupUrl,
+        helpText: `This link expires in ${process.env.PASSWORD_RESET_EXPIRES_IN || '1 hour'}. If you did not request this email, please ignore it.`,
+      }),
       text: `
         Welcome to ${BRAND_NAME}!
         
@@ -217,57 +224,18 @@ class EmailService {
       to: to,
       attachments: getBrandLogoAttachment(),
       subject: `${BRAND_NAME} - Password Reset Request`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #E5E7EB;">
-          ${brandHeaderHtml()}
-          
-          <div style="padding: 30px; background: #ffffff;">
-            <h2 style="color: #333; margin-bottom: 20px;">Password Reset Request</h2>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Hello ${firstName},
-            </p>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 30px;">
-              We received a request to reset your password. Click the button below to create a new password:
-            </p>
-            
-            <div style="text-align: center; margin-bottom: 30px;">
-              <a href="${resetUrl}" 
-                 style="background: linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_GREEN} 100%); 
-                        color: white; 
-                        padding: 15px 30px; 
-                        text-decoration: none; 
-                        border-radius: 5px; 
-                        display: inline-block; 
-                        font-weight: bold;">
-                Reset Password
-              </a>
-            </div>
-            
-            <p style="color: #999; font-size: 14px; margin-bottom: 20px;">
-              If the button doesn't work, you can copy and paste this link into your browser:
-            </p>
-            
-            <p style="color: ${BRAND_BLUE}; font-size: 14px; word-break: break-all;">
-              ${resetUrl}
-            </p>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-              <p style="color: #999; font-size: 12px; margin: 0;">
-                This link will expire in ${process.env.PASSWORD_RESET_EXPIRES_IN || '1 hour'}.<br>
-                If you didn't request this password reset, please ignore this email.
-              </p>
-            </div>
-          </div>
-          
-          <div style="background: ${BRAND_BLUE}; padding: 16px 20px; text-align: center;">
-            <p style="color: #E3F2FD; margin: 0; font-size: 12px;">
-              © 2026 ${BRAND_NAME}. All rights reserved.
-            </p>
-          </div>
-        </div>
-      `,
+      html: emailShellHtml({
+        title: 'Password Reset Request',
+        intro: `Hello ${firstName},`,
+        body: `
+          <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.65;">
+            We received a request to reset your password. Click the button below to create a new password.
+          </p>
+        `,
+        ctaLabel: 'Reset Password',
+        ctaUrl: resetUrl,
+        helpText: `This link expires in ${process.env.PASSWORD_RESET_EXPIRES_IN || '1 hour'}. If you did not request this password reset, please ignore this email.`,
+      }),
       text: `
         Password Reset Request
         
@@ -307,88 +275,41 @@ class EmailService {
     const loginUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     
     // School information section
-    const schoolInfo = school ? `
-      <div style="background: #E3F2FD; border-left: 4px solid ${BRAND_BLUE}; padding: 15px; margin: 20px 0; border-radius: 6px;">
-        <h3 style="color: #1f2937; margin: 0 0 10px 0; font-size: 16px;">School Assignment</h3>
-        <p style="color: #555; margin: 0; font-weight: bold;">${school.name}</p>
-        ${school.location ? `<p style="color: #666; margin: 5px 0 0 0; font-size: 14px;">📍 ${school.location}</p>` : ''}
-      </div>
-    ` : '';
+    const schoolInfo = school ? infoCardHtml(`
+      <p style="margin: 0 0 8px 0; color: #1f2937; font-weight: 700; font-size: 14px;">School Assignment</p>
+      <p style="margin: 0; color: #374151; font-size: 14px;"><strong>${school.name}</strong></p>
+      ${school.location ? `<p style="margin: 6px 0 0 0; color: #6b7280; font-size: 13px;">${school.location}</p>` : ''}
+    `) : '';
     
     const mailOptions = {
       from: process.env.EMAIL_FROM,
       to: to,
       attachments: getBrandLogoAttachment(),
       subject: `Welcome to ${BRAND_NAME} - Your Login Credentials`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #E5E7EB;">
-          ${brandHeaderHtml()}
-          
-          <div style="padding: 30px; background: #ffffff;">
-            <h2 style="color: #333; margin-bottom: 20px;">Welcome to ${BRAND_NAME}!</h2>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Hello ${teacherName},
-            </p>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 20px;">
-              Your teacher account has been created successfully in the ${BRAND_NAME} system.
-            </p>
-            
-            ${schoolInfo}
-            
-            <div style="background: #ffffff; border: 2px solid ${BRAND_BLUE}; border-radius: 8px; padding: 20px; margin: 20px 0;">
-              <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">🔐 Your Login Credentials</h3>
-              
-              <div style="margin-bottom: 15px;">
-                <p style="color: #666; margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">Email:</p>
-                <p style="color: #333; margin: 0; font-size: 16px; font-family: monospace; background: #f5f5f5; padding: 8px; border-radius: 4px;">${email}</p>
-              </div>
-              
-              <div style="margin-bottom: 15px;">
-                <p style="color: #666; margin: 0 0 5px 0; font-size: 14px; font-weight: bold;">Default Password:</p>
-                <p style="color: #333; margin: 0; font-size: 16px; font-family: monospace; background: #f5f5f5; padding: 8px; border-radius: 4px;">${defaultPassword}</p>
-              </div>
-            </div>
-            
-            <div style="background: #FFF8E1; border-left: 4px solid ${BRAND_YELLOW}; padding: 15px; margin: 20px 0; border-radius: 6px;">
-              <p style="color: #6b4f00; margin: 0; font-size: 14px; line-height: 1.6;">
-                <strong>⚠️ Important:</strong> You will be required to change this password on your first login for security purposes.
-              </p>
-            </div>
-            
-            <p style="color: #666; line-height: 1.6; margin-bottom: 30px;">
-              To access your account, please visit the ${BRAND_NAME} portal and log in with the credentials above:
-            </p>
-            
-            <div style="text-align: center; margin-bottom: 30px;">
-              <a href="${loginUrl}/login" 
-                 style="background: linear-gradient(135deg, ${BRAND_BLUE} 0%, ${BRAND_GREEN} 100%); 
-                        color: white; 
-                        padding: 15px 30px; 
-                        text-decoration: none; 
-                        border-radius: 5px; 
-                        display: inline-block; 
-                        font-weight: bold;">
-                Login to ${BRAND_NAME}
-              </a>
-            </div>
-            
-            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #eee;">
-              <p style="color: #999; font-size: 12px; margin: 0;">
-                Please keep your login credentials secure and do not share them with anyone.<br>
-                If you have any questions, please contact your school administrator.
-              </p>
-            </div>
-          </div>
-          
-          <div style="background: ${BRAND_BLUE}; padding: 16px 20px; text-align: center;">
-            <p style="color: #E3F2FD; margin: 0; font-size: 12px;">
-              © 2026 ${BRAND_NAME}. All rights reserved.
-            </p>
-          </div>
-        </div>
-      `,
+      html: emailShellHtml({
+        title: `Welcome to ${BRAND_NAME}!`,
+        intro: `Hello ${teacherName},`,
+        body: `
+          <p style="margin: 0 0 14px 0; color: #374151; font-size: 15px; line-height: 1.65;">
+            Your teacher account has been created successfully in the ${BRAND_NAME} system.
+          </p>
+          ${schoolInfo}
+          ${infoCardHtml(`
+            <p style="margin: 0 0 8px 0; color: #111827; font-size: 14px; font-weight: 700;">Your Login Credentials</p>
+            <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px;">Email</p>
+            <p style="margin: 0 0 10px 0; color: #111827; font-size: 14px; font-family: monospace; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px;">${email}</p>
+            <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px;">Default Password</p>
+            <p style="margin: 0; color: #111827; font-size: 14px; font-family: monospace; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px;">${defaultPassword}</p>
+          `)}
+          ${warningCardHtml(`<strong>Important:</strong> You will be required to change this password on your first login for security purposes.`)}
+          <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.65;">
+            Use the portal link below to sign in with these credentials.
+          </p>
+        `,
+        ctaLabel: `Login to ${BRAND_NAME}`,
+        ctaUrl: `${loginUrl}/login`,
+        helpText: 'Please keep your login credentials secure and do not share them with anyone. If you need help, contact your school administrator.',
+      }),
       text: `
         Welcome to ${BRAND_NAME}!
         

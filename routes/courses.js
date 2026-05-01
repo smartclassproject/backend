@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const courseController = require('../controllers/courses');
-const { authenticateToken, authorizeRoles, authorizeResourceAccess } = require('../middlewares/auth');
+const { authenticateToken, authorizeRoles, authorizeResourceAccess, requireModuleAccess } = require('../middlewares/auth');
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Course = require('../models/Course');
@@ -107,7 +107,7 @@ const Course = require('../models/Course');
  *                   type: string
  *                   example: "Internal server error"
  */
-router.get('/', authenticateToken, courseController.getAllCourses);
+router.get('/', authenticateToken, requireModuleAccess('courses'), courseController.getAllCourses);
 
 /**
  * @swagger
@@ -203,7 +203,7 @@ router.get('/', authenticateToken, courseController.getAllCourses);
  *                   type: string
  *                   example: "Internal server error"
  */
-router.get('/:id', authenticateToken, authorizeResourceAccess(Course), courseController.getCourseById);
+router.get('/:id', authenticateToken, requireModuleAccess('courses'), authorizeResourceAccess(Course), courseController.getCourseById);
 
 /**
  * @swagger
@@ -321,6 +321,7 @@ router.get('/:id', authenticateToken, authorizeResourceAccess(Course), courseCon
 router.post('/', 
   authenticateToken, 
   authorizeRoles('school_admin'),
+  requireModuleAccess('courses'),
   [
     body('name').notEmpty().withMessage('Course name is required')
       .isLength({ max: 100 }).withMessage('Course name cannot exceed 100 characters'),
@@ -483,6 +484,7 @@ router.post('/',
 router.put('/:id', 
   authenticateToken, 
   authorizeRoles('school_admin'),
+  requireModuleAccess('courses'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('Course name cannot exceed 100 characters'),
     body('code').optional().isLength({ max: 15 }).withMessage('Course code cannot exceed 15 characters'),
@@ -604,6 +606,7 @@ router.put('/:id',
 router.delete('/:id', 
   authenticateToken, 
   authorizeRoles('school_admin'),
+  requireModuleAccess('courses'),
   courseController.deleteCourse
 );
 

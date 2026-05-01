@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const studentController = require('../controllers/students');
-const { authorizeRoles, authorizeResourceAccess } = require('../middlewares/auth');
+const { authorizeRoles, authorizeResourceAccess, requireModuleAccess } = require('../middlewares/auth');
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Student = require('../models/Student');
@@ -255,7 +255,7 @@ router.get('/school/:schoolId/students', authorizeRoles('admin'), studentControl
  *       500:
  *         description: Internal server error
  */
-router.get('/students', authorizeRoles('school_admin', 'teacher'), studentController.getMySchoolStudents);
+router.get('/students', authorizeRoles('school_admin', 'teacher', 'school_staff'), requireModuleAccess('students'), studentController.getMySchoolStudents);
 
 /**
  * @swagger
@@ -297,7 +297,7 @@ router.get('/students', authorizeRoles('school_admin', 'teacher'), studentContro
  *       500:
  *         description: Internal server error
  */
-router.get('/students/:id', authorizeRoles('school_admin', 'super_admin'), studentController.getStudentById);
+router.get('/students/:id', authorizeRoles('school_admin', 'super_admin', 'school_staff'), requireModuleAccess('students'), studentController.getStudentById);
 
 /**
  * @swagger
@@ -341,6 +341,7 @@ router.get('/students/:id', authorizeRoles('school_admin', 'super_admin'), stude
  *         description: Internal server error
  */
 router.post('/students', authorizeRoles('school_admin'),
+  requireModuleAccess('students'),
   [
     body('name').notEmpty().withMessage('Student name is required')
       .isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
@@ -456,6 +457,7 @@ router.post('/students', authorizeRoles('school_admin'),
 router.put('/students/:id',
 
   authorizeRoles('school_admin'),
+  requireModuleAccess('students'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('Student name cannot exceed 100 characters'),
     body('cardId')
@@ -528,6 +530,7 @@ router.put('/students/:id',
  */
 router.delete('/students/:id',
   authorizeRoles('school_admin'),
+  requireModuleAccess('students'),
   studentController.deleteStudent
 );
 

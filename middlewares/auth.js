@@ -4,6 +4,7 @@ const TeacherUser = require('../models/TeacherUser');
 const Teacher = require('../models/Teacher');
 const StudentUser = require('../models/StudentUser');
 const ParentUser = require('../models/ParentUser');
+const SchoolStaff = require('../models/SchoolStaff');
 
 /**
  * Authentication middleware to verify JWT token
@@ -48,6 +49,13 @@ const authenticateToken = async (req, res, next) => {
         user.role = 'parent';
         user.userType = 'parent';
         user.studentId = decoded.studentId || user.studentIdRef;
+      }
+    } else if (decoded.userType === 'school_staff' || decoded.role === 'school_staff') {
+      user = await SchoolStaff.findById(decoded.userId).select('-password');
+      if (user) {
+        user.role = 'school_staff';
+        user.userType = 'school_staff';
+        user.modules = decoded.modules || user.modules || [];
       }
     } else {
       user = await AdminUser.findById(decoded.userId).select('-password');
@@ -127,6 +135,38 @@ const authorizeRoles = (...allowedRoles) => {
   };
 };
 
+const requireModuleAccess = (moduleKey) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    if (req.user.role === 'super_admin' || req.user.role === 'school_admin') {
+      return next();
+    }
+
+    if (req.user.role !== 'school_staff') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied - insufficient permissions',
+      });
+    }
+
+    const userModules = Array.isArray(req.user.modules) ? req.user.modules : [];
+    if (!userModules.includes(moduleKey)) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied - missing module permission: ${moduleKey}`,
+      });
+    }
+
+    return next();
+  };
+};
+
 /**
  * School-specific authorization middleware
  * Ensures school_admin can only access their school's data
@@ -145,8 +185,8 @@ const authorizeSchoolAccess = async (req, res, next) => {
       return next();
     }
 
-    // School admin can only access their school
-    if (req.user.role === 'school_admin') {
+    // School admin/staff can only access their school
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       const schoolId = req.params.schoolId || req.body.schoolId || req.query.schoolId;
       
       if (!schoolId) {
@@ -193,8 +233,8 @@ const authorizeResourceAccess = (resourceModel, resourceIdField = '_id') => {
         return next();
       }
 
-      // School admin can only access resources from their school
-      if (req.user.role === 'school_admin') {
+      // School admin and school staff can only access resources from their school
+      if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
         const resourceId = req.params[resourceIdField] || req.body[resourceIdField];
         
         if (!resourceId) {
@@ -237,5 +277,6 @@ module.exports = {
   authorizeRoles,
   authorizeSchoolAccess,
   authorizeResourceAccess,
+  requireModuleAccess,
   authorize: authorizeRoles // Alias for backward compatibility
 }; 

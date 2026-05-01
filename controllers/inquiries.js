@@ -61,14 +61,14 @@ exports.replyToInquiry = async (req, res) => {
     const item = await Inquiry.findById(req.params.id);
     if (!item) return sendError(res, 404, 'Inquiry not found');
 
-    const isAdmin = req.user.role === 'school_admin';
+    const isAdmin = req.user.role === 'school_admin' || req.user.role === 'school_staff';
     const inSchool = item.schoolId.toString() === req.user.schoolId?.toString();
     const isOwner = item.requesterId.toString() === req.user._id.toString();
     if (!(isAdmin && inSchool) && !isOwner) return sendError(res, 403, 'Access denied');
 
     item.responses.push({
       authorId: req.user._id,
-      authorModel: isAdmin ? 'AdminUser' : (req.user.role === 'parent' ? 'ParentUser' : 'StudentUser'),
+      authorModel: isAdmin ? (req.user.role === 'school_staff' ? 'SchoolStaff' : 'AdminUser') : (req.user.role === 'parent' ? 'ParentUser' : 'StudentUser'),
       message
     });
     if (isAdmin && item.status === 'OPEN') item.status = 'IN_PROGRESS';

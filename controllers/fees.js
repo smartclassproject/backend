@@ -296,7 +296,7 @@ exports.getPaymentSubmissions = async (req, res) => {
     const query = { schoolId: req.user.schoolId };
     if (req.user.role === 'student' || req.user.role === 'parent') query.studentId = req.user.studentId;
     if (req.query.status) query.verificationStatus = req.query.status;
-    if (req.query.studentId && req.user.role === 'school_admin') query.studentId = req.query.studentId;
+    if (req.query.studentId && (req.user.role === 'school_admin' || req.user.role === 'school_staff')) query.studentId = req.query.studentId;
 
     const docs = await FeePaymentSubmission.find(query).populate('studentId', 'name studentId class classId').sort({ createdAt: -1 });
     return sendResponse(res, 200, { message: 'Payment submissions retrieved successfully', data: docs });

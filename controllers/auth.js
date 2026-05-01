@@ -1,6 +1,7 @@
 const AdminUser = require('../models/AdminUser');
 const TeacherUser = require('../models/TeacherUser');
 const Teacher = require('../models/Teacher');
+const SchoolStaff = require('../models/SchoolStaff');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { sendResponse, sendError } = require('../utils/response');
@@ -21,6 +22,12 @@ exports.login = async (req, res, next) => {
     if (!user) {
       user = await TeacherUser.findOne({ email: email.toLowerCase() }).populate('teacherId');
       userType = 'teacher';
+    }
+
+    // If still not found, try SchoolStaff
+    if (!user) {
+      user = await SchoolStaff.findOne({ email: email.toLowerCase() });
+      userType = 'school_staff';
     }
     
     if (!user) {
@@ -149,6 +156,10 @@ exports.login = async (req, res, next) => {
       return sendError(res, 401, 'Invalid credentials. Please use your default password for first-time login.');
     }
 
+    if (userType === 'school_staff' && !user.isActive) {
+      return sendError(res, 403, 'Staff account is deactivated');
+    }
+
     // Compare the provided password with the stored hashed password
     // Ensure password exists before comparing
     if (!user.password) {
@@ -177,7 +188,7 @@ exports.login = async (req, res, next) => {
         userType: 'admin'
       };
       userProfile = user.getPublicProfile();
-    } else {
+    } else if (userType === 'teacher') {
       // Teacher user
       const teacher = user.teacherId || await Teacher.findById(user.teacherId);
       if (!teacher || !teacher.isActive) {
@@ -200,6 +211,26 @@ exports.login = async (req, res, next) => {
         teacherId: teacher._id,
         name: teacher.name,
         isActive: user.isActive
+      };
+    } else {
+      jwtPayload = {
+        userId: user._id,
+        role: 'school_staff',
+        schoolId: user.schoolId,
+        modules: user.modules || [],
+        userType: 'school_staff',
+      };
+      userProfile = {
+        _id: user._id,
+        email: user.email,
+        role: 'school_staff',
+        schoolId: user.schoolId,
+        name: `${user.firstName} ${user.lastName}`.trim(),
+        firstName: user.firstName,
+        lastName: user.lastName,
+        staffRole: user.staffRole,
+        modules: user.modules || [],
+        isActive: user.isActive,
       };
     }
 
@@ -268,6 +299,15 @@ exports.session = async (req, res, next) => {
         isActive: currentUser.isActive,
         requiresPasswordChange: !currentUser.passwordSetup
       };
+    } else if (req.user.userType === 'school_staff' || req.user.role === 'school_staff') {
+      currentUser = await SchoolStaff.findById(req.user._id).select('-password');
+      if (!currentUser) {
+        return sendError(res, 401, 'User not found');
+      }
+      role = 'school_staff';
+      userProfile = currentUser.getPublicProfile();
+      userProfile.role = 'school_staff';
+      userProfile.name = `${currentUser.firstName} ${currentUser.lastName}`.trim();
     } else {
       // Admin user
       currentUser = await AdminUser.findById(req.user._id).select('-password');
@@ -289,7 +329,7 @@ exports.session = async (req, res, next) => {
         authenticated: true,
         lastLogin: currentUser.lastLogin,
         tokenExpiresIn: process.env.JWT_EXPIRE || '7d',
-        permissions: getPermissionsByRole(role)
+        permissions: getPermissionsByRole(role, currentUser)
       }
     };
 
@@ -517,7 +557,7 @@ exports.setupPassword = async (req, res, next) => {
 };
 
 // Helper function to get permissions by role
-const getPermissionsByRole = (role) => {
+const getPermissionsByRole = (role, user = null) => {
   const permissions = {
     super_admin: [
       'manage_schools',
@@ -550,7 +590,8 @@ const getPermissionsByRole = (role) => {
       'view_students',
       'view_attendance',
       'upload_reports'
-    ]
+    ],
+    school_staff: user?.modules || []
   };
   
   return permissions[role] || [];

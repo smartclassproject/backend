@@ -16,7 +16,7 @@ exports.getAllCourses = async (req, res, next) => {
     const query = {};
 
     // School admin can only see their school's courses
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       query.schoolId = req.user.schoolId;
     }
 
@@ -89,7 +89,7 @@ exports.createCourse = async (req, res) => {
       return sendError(res, 404, 'Major not found');
     }
 
-    if (req.user.role === 'school_admin' && major.schoolId.toString() !== req.user.schoolId.toString()) {
+    if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && major.schoolId.toString() !== req.user.schoolId.toString()) {
       return sendError(res, 403, 'Major does not belong to your school');
     }
 
@@ -152,7 +152,7 @@ exports.updateCourse = async (req, res) => {
         return sendError(res, 404, 'Major not found');
       }
 
-      if (req.user.role === 'school_admin' && major.schoolId.toString() !== req.user.schoolId.toString()) {
+      if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && major.schoolId.toString() !== req.user.schoolId.toString()) {
         return sendError(res, 403, 'Major does not belong to your school');
       }
     }

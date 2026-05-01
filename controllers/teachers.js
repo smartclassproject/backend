@@ -18,7 +18,7 @@ exports.getAllTeachers = async (req, res) => {
     const query = {};
     
     // School admin can only see their school's teachers
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       query.schoolId = req.user.schoolId;
     }
 
@@ -258,7 +258,7 @@ exports.resendTeacherCredentials = async (req, res) => {
     }
 
     // Check access permissions
-    if (req.user.role === 'school_admin' && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
+    if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
       return sendError(res, 403, 'Access denied - teacher does not belong to your school');
     }
 
@@ -325,7 +325,7 @@ exports.exportTeachersToPDF = async (req, res) => {
     // Build query based on user role
     const query = {};
     
-    if (req.user.role === 'school_admin') {
+    if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
       query.schoolId = req.user.schoolId;
     }
 
