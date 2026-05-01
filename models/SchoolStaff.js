@@ -61,6 +61,20 @@ const schoolStaffSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    passwordSetup: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    lastCredentialsSentAt: {
+      type: Date,
+      default: null,
+    },
+    credentialsSendCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     isActive: {
       type: Boolean,
       default: true,

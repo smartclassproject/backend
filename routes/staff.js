@@ -96,6 +96,22 @@ router.put(
   staffController.updateStaffStatus
 );
 
+router.delete(
+  '/:id',
+  authorizeRoles('super_admin', 'school_admin'),
+  [param('id').isMongoId().withMessage('Invalid staff id')],
+  validateRequest,
+  staffController.deleteStaff
+);
+
+router.post(
+  '/:id/resend-credentials',
+  authorizeRoles('super_admin', 'school_admin'),
+  [param('id').isMongoId().withMessage('Invalid staff id')],
+  validateRequest,
+  staffController.resendStaffCredentials
+);
+
 router.post(
   '/:id/reset-credentials',
   authorizeRoles('super_admin', 'school_admin'),

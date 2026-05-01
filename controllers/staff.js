@@ -1,6 +1,7 @@
-const bcrypt = require('bcryptjs');
 const SchoolStaff = require('../models/SchoolStaff');
 const StaffModule = require('../models/StaffModule');
+const School = require('../models/School');
+const emailService = require('../utils/emailService');
 const { sendError, sendResponse } = require('../utils/response');
 
 const SYSTEM_MODULES = [
@@ -61,6 +62,11 @@ const resolveTargetSchoolId = (req, requestedSchoolId) => {
 const canAccessStaff = (req, staffDoc) => {
   if (req.user.role === 'super_admin') return true;
   return staffDoc.schoolId.toString() === req.user.schoolId?.toString();
+};
+
+const getSchoolForStaff = async (schoolId) => {
+  if (!schoolId) return null;
+  return School.findById(schoolId).select('name location');
 };
 
 exports.getRoleTemplates = async (req, res) => {
@@ -190,6 +196,7 @@ exports.createStaff = async (req, res, next) => {
       return sendError(res, 409, 'Staff email already exists');
     }
 
+    const defaultPassword = String(password || '1234');
     const created = await SchoolStaff.create({
       schoolId,
       firstName,
@@ -199,15 +206,43 @@ exports.createStaff = async (req, res, next) => {
       staffRole,
       customRoleTitle: customRoleTitle || '',
       modules: requestedModules,
-      password: password || '1234',
+      password: defaultPassword,
+      passwordSetup: false,
       createdByUserId: req.user._id,
       createdByRole: req.user.role === 'super_admin' ? 'SUPER_ADMIN' : 'SCHOOL_ADMIN',
       updatedByUserId: req.user._id,
     });
 
+    let credentialsEmailSent = false;
+    let responseMessage = 'Staff created. Credentials email sent.';
+    try {
+      const school = await getSchoolForStaff(schoolId);
+      await emailService.sendStaffCredentialsEmail(
+        created.email,
+        created.email,
+        defaultPassword,
+        `${created.firstName} ${created.lastName}`.trim(),
+        created.staffRole,
+        school
+      );
+      credentialsEmailSent = true;
+      created.lastCredentialsSentAt = new Date();
+      created.credentialsSendCount = Number(created.credentialsSendCount || 0) + 1;
+      await created.save();
+    } catch (emailError) {
+      console.error('Failed to send initial staff credentials email:', emailError);
+      responseMessage = 'Staff created, but credentials email failed. Use Resend Credentials.';
+    }
+
+    const publicStaff = created.getPublicProfile();
+
     return sendResponse(res, 201, {
-      message: 'Staff created successfully',
-      data: created.getPublicProfile(),
+      message: responseMessage,
+      data: {
+        ...publicStaff,
+        credentialsEmailSent,
+        defaultPassword,
+      },
     });
   } catch (error) {
     return next(error);
@@ -283,6 +318,9 @@ exports.updateStaffStatus = async (req, res, next) => {
     if (!staff) return sendError(res, 404, 'Staff not found');
     if (!canAccessStaff(req, staff)) return sendError(res, 403, 'Access denied');
     if (typeof req.body.isActive !== 'boolean') return sendError(res, 400, 'isActive boolean is required');
+    if (!staff.passwordSetup) {
+      return sendError(res, 400, 'Cannot deactivate or activate staff before password setup is completed');
+    }
     staff.isActive = req.body.isActive;
     staff.updatedByUserId = req.user._id;
     await staff.save();
@@ -302,11 +340,69 @@ exports.resetStaffCredentials = async (req, res, next) => {
     if (newPassword.length < 4) {
       return sendError(res, 400, 'newPassword must be at least 4 characters');
     }
-    const salt = await bcrypt.genSalt(12);
-    staff.password = await bcrypt.hash(newPassword, salt);
+    staff.password = newPassword;
+    staff.passwordSetup = false;
     staff.updatedByUserId = req.user._id;
     await staff.save();
     return sendResponse(res, 200, { message: 'Staff credentials reset successfully' });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.resendStaffCredentials = async (req, res, next) => {
+  try {
+    const staff = await SchoolStaff.findById(req.params.id);
+    if (!staff) return sendError(res, 404, 'Staff not found');
+    if (!canAccessStaff(req, staff)) return sendError(res, 403, 'Access denied');
+    if (staff.passwordSetup) {
+      return sendError(res, 400, 'Staff has already completed password setup');
+    }
+
+    const defaultPassword = process.env.DEFAULT_STAFF_PASSWORD || '1234';
+    staff.password = defaultPassword;
+    staff.passwordSetup = false;
+    staff.updatedByUserId = req.user._id;
+
+    const school = await getSchoolForStaff(staff.schoolId);
+    await emailService.sendStaffCredentialsEmail(
+      staff.email,
+      staff.email,
+      defaultPassword,
+      `${staff.firstName} ${staff.lastName}`.trim(),
+      staff.staffRole,
+      school
+    );
+
+    staff.lastCredentialsSentAt = new Date();
+    staff.credentialsSendCount = Number(staff.credentialsSendCount || 0) + 1;
+    await staff.save();
+
+    return sendResponse(res, 200, {
+      message: 'Login credentials email has been resent successfully!',
+      data: {
+        staffId: staff._id,
+        email: staff.email,
+        passwordSetup: staff.passwordSetup,
+        lastCredentialsSentAt: staff.lastCredentialsSentAt,
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+exports.deleteStaff = async (req, res, next) => {
+  try {
+    const staff = await SchoolStaff.findById(req.params.id);
+    if (!staff) return sendError(res, 404, 'Staff not found');
+    if (!canAccessStaff(req, staff)) return sendError(res, 403, 'Access denied');
+    if (staff.passwordSetup) {
+      return sendError(res, 400, 'Cannot delete staff after password setup is completed; use deactivate');
+    }
+
+    await SchoolStaff.deleteOne({ _id: staff._id });
+    return sendResponse(res, 200, { message: 'Staff deleted successfully' });
   } catch (error) {
     return next(error);
   }

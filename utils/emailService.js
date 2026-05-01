@@ -361,6 +361,84 @@ class EmailService {
   }
 
   /**
+   * Send school staff login credentials email
+   * @param {string} to - Recipient email
+   * @param {string} email - Login email
+   * @param {string} defaultPassword - Temporary password
+   * @param {string} staffName - Staff name
+   * @param {string} staffRole - Staff role label
+   * @param {Object} school - School information (optional)
+   * @returns {Promise} - Email send result
+   */
+  async sendStaffCredentialsEmail(to, email, defaultPassword, staffName, staffRole, school = null) {
+    if (!process.env.EMAIL_HOST || !process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+      throw new Error('Email service not properly configured. Please check EMAIL_HOST, EMAIL_USER, and EMAIL_PASS environment variables.');
+    }
+
+    const loginUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const schoolInfo = school ? infoCardHtml(`
+      <p style="margin: 0 0 8px 0; color: #1f2937; font-weight: 700; font-size: 14px;">School Assignment</p>
+      <p style="margin: 0; color: #374151; font-size: 14px;"><strong>${school.name}</strong></p>
+      ${school.location ? `<p style="margin: 6px 0 0 0; color: #6b7280; font-size: 13px;">${school.location}</p>` : ''}
+    `) : '';
+
+    const roleLabel = String(staffRole || 'Staff').replaceAll('_', ' ');
+
+    const mailOptions = {
+      from: process.env.EMAIL_FROM,
+      to,
+      attachments: getBrandLogoAttachment(),
+      subject: `Welcome to ${BRAND_NAME} - Your Login Credentials`,
+      html: emailShellHtml({
+        title: `Welcome to ${BRAND_NAME}!`,
+        intro: `Hello ${staffName},`,
+        body: `
+          <p style="margin: 0 0 14px 0; color: #374151; font-size: 15px; line-height: 1.65;">
+            Your ${roleLabel.toLowerCase()} account has been created successfully in the ${BRAND_NAME} system.
+          </p>
+          ${schoolInfo}
+          ${infoCardHtml(`
+            <p style="margin: 0 0 8px 0; color: #111827; font-size: 14px; font-weight: 700;">Your Login Credentials</p>
+            <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px;">Email</p>
+            <p style="margin: 0 0 10px 0; color: #111827; font-size: 14px; font-family: monospace; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px;">${email}</p>
+            <p style="margin: 0 0 4px 0; color: #6b7280; font-size: 12px;">Temporary Password</p>
+            <p style="margin: 0; color: #111827; font-size: 14px; font-family: monospace; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px;">${defaultPassword}</p>
+          `)}
+          ${warningCardHtml('<strong>Important:</strong> Please change this password after your first login for account security.')}
+          <p style="margin: 0; color: #374151; font-size: 15px; line-height: 1.65;">
+            Use the portal link below to sign in with these credentials.
+          </p>
+        `,
+        ctaLabel: `Login to ${BRAND_NAME}`,
+        ctaUrl: `${loginUrl}/login`,
+        helpText: 'Please keep your login credentials secure and do not share them. Contact your school administrator for support.',
+      }),
+      text: `
+        Welcome to ${BRAND_NAME}!
+
+        Hello ${staffName},
+
+        Your ${roleLabel.toLowerCase()} account has been created successfully in the ${BRAND_NAME} system.
+
+        ${school ? `School Assignment: ${school.name}${school.location ? ` (${school.location})` : ''}` : ''}
+
+        Your Login Credentials:
+        Email: ${email}
+        Temporary Password: ${defaultPassword}
+
+        Important: Please change this password after your first login.
+
+        To access your account, visit: ${loginUrl}/login
+
+        Best regards,
+        The ${BRAND_NAME} Team
+      `
+    };
+
+    return await this.sendEmailWithRetry(mailOptions, 'staff credentials');
+  }
+
+  /**
    * Test email service connection with multiple configurations
    * @returns {Promise<boolean>} - Connection test result
    */
