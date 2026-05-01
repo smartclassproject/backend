@@ -1,21 +1,23 @@
 const express = require('express');
 const router = express.Router();
 const classController = require('../controllers/classes');
-const { authenticateToken, authorizeRoles } = require('../middlewares/auth');
+const { authenticateToken, authorizeRoles, requireAnyModuleAccess } = require('../middlewares/auth');
 const { body } = require('express-validator');
 const { validateRequest } = require('../middlewares/validation');
 
 // GET /api/classes - Get classes for current school (school_admin, teacher)
 router.get('/',
   authenticateToken,
-  authorizeRoles('school_admin', 'teacher'),
+  authorizeRoles('school_admin', 'teacher', 'school_staff'),
+  requireAnyModuleAccess('courses', 'students'),
   classController.getClasses
 );
 
 // GET /api/classes/:id
 router.get('/:id',
   authenticateToken,
-  authorizeRoles('school_admin', 'teacher'),
+  authorizeRoles('school_admin', 'teacher', 'school_staff'),
+  requireAnyModuleAccess('courses', 'students'),
   classController.getClassById
 );
 

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const attendanceController = require('../controllers/attendance');
-const { authenticateToken, authorizeRoles, authorizeResourceAccess } = require('../middlewares/auth');
+const { authenticateToken, authorizeRoles, authorizeResourceAccess, requireAnyModuleAccess } = require('../middlewares/auth');
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Attendance = require('../models/Attendance');
@@ -649,6 +649,12 @@ router.get('/statistics', authenticateToken, attendanceController.getAttendanceS
  *                   type: string
  *                   example: "Internal server error"
  */
-router.get('/school/attendance', authenticateToken, authorizeRoles('school_admin'), attendanceController.getSchoolAttendance);
+router.get(
+  '/school/attendance',
+  authenticateToken,
+  authorizeRoles('school_admin', 'school_staff'),
+  requireAnyModuleAccess('reports', 'students'),
+  attendanceController.getSchoolAttendance
+);
 
 module.exports = router; 

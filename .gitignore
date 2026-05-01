@@ -7,7 +7,6 @@
 /uploads
 /public
 /config
-/docs
 
 /.github/workflows/
 .env

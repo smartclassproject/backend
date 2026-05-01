@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const majorController = require('../controllers/majors');
-const { authenticateToken, authorizeRoles, authorizeResourceAccess, authorize } = require('../middlewares/auth');
+const { authenticateToken, authorizeRoles, authorizeResourceAccess, authorize, requireAnyModuleAccess } = require('../middlewares/auth');
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Major = require('../models/Major');
@@ -244,7 +244,8 @@ router.get('school/:schoolId/majors',
  */
 router.get('/school/majors', 
   authenticateToken, 
-  authorize('school_admin'),
+  authorize('school_admin', 'school_staff'),
+  requireAnyModuleAccess('courses', 'students'),
   majorController.getMySchoolMajors
 );
 

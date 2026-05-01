@@ -167,6 +167,39 @@ const requireModuleAccess = (moduleKey) => {
   };
 };
 
+const requireAnyModuleAccess = (...moduleKeys) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    if (req.user.role === 'super_admin' || req.user.role === 'school_admin') {
+      return next();
+    }
+
+    if (req.user.role !== 'school_staff') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied - insufficient permissions',
+      });
+    }
+
+    const userModules = Array.isArray(req.user.modules) ? req.user.modules : [];
+    const hasAnyModule = moduleKeys.some((key) => userModules.includes(key));
+    if (!hasAnyModule) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied - missing module permission: one of [${moduleKeys.join(', ')}]`,
+      });
+    }
+
+    return next();
+  };
+};
+
 /**
  * School-specific authorization middleware
  * Ensures school_admin can only access their school's data
@@ -278,5 +311,6 @@ module.exports = {
   authorizeSchoolAccess,
   authorizeResourceAccess,
   requireModuleAccess,
+  requireAnyModuleAccess,
   authorize: authorizeRoles // Alias for backward compatibility
 }; 
