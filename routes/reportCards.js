@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const reportCardsController = require('../controllers/reportCards');
-const { authenticateToken, authorizeRoles } = require('../middlewares/auth');
+const { authenticateToken, authorizeRoles, requireModuleAccess } = require('../middlewares/auth');
 const { body } = require('express-validator');
 const { validateRequest } = require('../middlewares/validation');
 
 // GET /api/report-cards/terms-config - Get school's number of terms (school_admin, teacher)
 router.get('/terms-config',
   authenticateToken,
-  authorizeRoles('school_admin', 'teacher'),
+  authorizeRoles('school_admin', 'teacher', 'school_staff'),
   reportCardsController.getTermsConfig
 );
 
@@ -51,14 +51,16 @@ router.get('/my-results',
 // GET /api/report-cards - List all report card entries (school_admin)
 router.get('/',
   authenticateToken,
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
+  requireModuleAccess('reports'),
   reportCardsController.getReportCards
 );
 
 // GET /api/report-cards/student/:studentId - Full report card for one student (school_admin)
 router.get('/student/:studentId',
   authenticateToken,
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
+  requireModuleAccess('reports'),
   reportCardsController.getReportCardByStudent
 );
 
