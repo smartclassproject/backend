@@ -2,6 +2,7 @@ const Lesson = require('../models/Lesson');
 const Course = require('../models/Course');
 const CourseSchedule = require('../models/CourseSchedule');
 const { sendResponse, sendError } = require('../utils/response');
+const { refIdString } = require('../utils/mongoIds');
 
 // GET /api/lessons - Get all lessons with pagination and filters
 exports.getAllLessons = async (req, res) => {
@@ -19,9 +20,16 @@ exports.getAllLessons = async (req, res) => {
       query.schoolId = req.user.schoolId;
     }
     
-    // Teacher can only see their own lessons
+    // Teacher can only see their own lessons (Lesson.teacherId refs Teacher, not TeacherUser)
     if (req.user.role === 'teacher' || req.user.userType === 'teacher') {
-      query.teacherId = req.user.teacherId || req.user._id;
+      if (!req.user.teacherId) {
+        return sendResponse(res, 200, {
+          message: 'Lessons retrieved successfully',
+          data: [],
+          pagination: { page, limit, total: 0 }
+        });
+      }
+      query.teacherId = req.user.teacherId;
       query.schoolId = req.user.schoolId;
     }
 
@@ -71,9 +79,10 @@ exports.getLessonById = async (req, res) => {
       return sendError(res, 403, 'Access denied');
     }
     
-    if ((req.user.role === 'teacher' || req.user.userType === 'teacher') && 
-        lesson.teacherId.toString() !== (req.user.teacherId || req.user._id).toString()) {
-      return sendError(res, 403, 'Access denied');
+    if (req.user.role === 'teacher' || req.user.userType === 'teacher') {
+      if (!req.user.teacherId || refIdString(lesson.teacherId) !== refIdString(req.user.teacherId)) {
+        return sendError(res, 403, 'Access denied');
+      }
     }
 
     return sendResponse(res, 200, { message: 'Lesson retrieved successfully', data: lesson });
@@ -104,7 +113,10 @@ exports.createLesson = async (req, res) => {
     // Get teacher ID based on user role
     let teacherId;
     if (req.user.role === 'teacher' || req.user.userType === 'teacher') {
-      teacherId = req.user.teacherId || req.user._id;
+      teacherId = req.user.teacherId;
+      if (!teacherId) {
+        return sendError(res, 400, 'Teacher profile is not linked to this account');
+      }
     } else if (req.body.teacherId) {
       teacherId = req.body.teacherId;
     } else {
@@ -169,9 +181,10 @@ exports.updateLesson = async (req, res) => {
       return sendError(res, 403, 'Access denied');
     }
     
-    if ((req.user.role === 'teacher' || req.user.userType === 'teacher') && 
-        lesson.teacherId.toString() !== (req.user.teacherId || req.user._id).toString()) {
-      return sendError(res, 403, 'Access denied - you can only update your own lessons');
+    if (req.user.role === 'teacher' || req.user.userType === 'teacher') {
+      if (!req.user.teacherId || refIdString(lesson.teacherId) !== refIdString(req.user.teacherId)) {
+        return sendError(res, 403, 'Access denied - you can only update your own lessons');
+      }
     }
 
     const {
@@ -214,9 +227,10 @@ exports.deleteLesson = async (req, res) => {
       return sendError(res, 403, 'Access denied');
     }
     
-    if ((req.user.role === 'teacher' || req.user.userType === 'teacher') && 
-        lesson.teacherId.toString() !== (req.user.teacherId || req.user._id).toString()) {
-      return sendError(res, 403, 'Access denied - you can only delete your own lessons');
+    if (req.user.role === 'teacher' || req.user.userType === 'teacher') {
+      if (!req.user.teacherId || refIdString(lesson.teacherId) !== refIdString(req.user.teacherId)) {
+        return sendError(res, 403, 'Access denied - you can only delete your own lessons');
+      }
     }
 
     await Lesson.findByIdAndDelete(req.params.id);

@@ -22,13 +22,15 @@ const authenticateToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'smartclass2025');
-    
+    const isTeacherJwt = decoded.userType === 'teacher' || decoded.role === 'teacher';
+
     // Determine user type and find user in appropriate database
     let user;
-    if (decoded.userType === 'teacher' || decoded.role === 'teacher') {
+    if (isTeacherJwt) {
       user = await TeacherUser.findById(decoded.userId).select('-password');
       if (user) {
-        const teacher = await Teacher.findById(decoded.teacherId || user.teacherId);
+        // Prefer TeacherUser.teacherId from DB over JWT (tokens can be stale)
+        const teacher = await Teacher.findById(user.teacherId || decoded.teacherId);
         if (!teacher || !teacher.isActive) {
           return res.status(401).json({ success: false, message: 'Teacher account is not active' });
         }
@@ -77,7 +79,8 @@ const authenticateToken = async (req, res, next) => {
 
     // Add decoded token info to user object for easier access
     user.userType = decoded.userType || (decoded.role === 'teacher' ? 'teacher' : decoded.role === 'student' ? 'student' : decoded.role === 'parent' ? 'parent' : 'admin');
-    if (decoded.teacherId) user.teacherId = decoded.teacherId;
+    // Do not overwrite teacher req.user.teacherId from JWT; Teacher branch sets it from Teacher doc
+    if (decoded.teacherId && !isTeacherJwt) user.teacherId = decoded.teacherId;
     if (decoded.studentId) user.studentId = decoded.studentId;
     if (!user.role && decoded.role) user.role = decoded.role;
 
