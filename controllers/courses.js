@@ -72,6 +72,19 @@ exports.getCourseById = async (req, res) => {
       return sendError(res, 404, 'Course not found');
     }
 
+    if (req.user.role === 'teacher' && req.user.teacherId) {
+      if (course.schoolId.toString() !== req.user.schoolId.toString()) {
+        return sendError(res, 403, 'Access denied');
+      }
+      const assigned = await CourseSchedule.exists({
+        courseId: course._id,
+        teacherId: req.user.teacherId,
+      });
+      if (!assigned) {
+        return sendError(res, 403, 'Access denied');
+      }
+    }
+
     return sendResponse(res, 200, { message: 'Course retrieved successfully', data: course });
   } catch (error) {
     sendError(res, 500, 'Error fetching course', error);

@@ -230,6 +230,47 @@ const requireModuleAccessForSchoolStaff = (moduleKey) => {
 };
 
 /**
+ * Like requireModuleAccess, but extra roles bypass the module list (e.g. teachers reading courses).
+ */
+const requireModuleAccessAllowingRoles = (moduleKey, ...rolesWithoutModuleCheck) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    const role = req.user.role;
+
+    if (role === 'super_admin' || role === 'school_admin') {
+      return next();
+    }
+
+    if (rolesWithoutModuleCheck.includes(role)) {
+      return next();
+    }
+
+    if (role !== 'school_staff') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied - insufficient permissions',
+      });
+    }
+
+    const userModules = Array.isArray(req.user.modules) ? req.user.modules : [];
+    if (!userModules.includes(moduleKey)) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied - missing module permission: ${moduleKey}`,
+      });
+    }
+
+    return next();
+  };
+};
+
+/**
  * School-specific authorization middleware
  * Ensures school_admin can only access their school's data
  */
@@ -341,6 +382,7 @@ module.exports = {
   authorizeResourceAccess,
   requireModuleAccess,
   requireAnyModuleAccess,
+  requireModuleAccessAllowingRoles,
   requireModuleAccessForSchoolStaff,
   authorize: authorizeRoles // Alias for backward compatibility
 }; 

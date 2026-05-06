@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const courseController = require('../controllers/courses');
-const { authenticateToken, authorizeRoles, authorizeResourceAccess, requireModuleAccess } = require('../middlewares/auth');
+const { authenticateToken, authorizeRoles, authorizeResourceAccess, requireModuleAccess, requireModuleAccessAllowingRoles } = require('../middlewares/auth');
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Course = require('../models/Course');
@@ -107,7 +107,7 @@ const Course = require('../models/Course');
  *                   type: string
  *                   example: "Internal server error"
  */
-router.get('/', authenticateToken, requireModuleAccess('courses'), courseController.getAllCourses);
+router.get('/', authenticateToken, requireModuleAccessAllowingRoles('courses', 'teacher'), courseController.getAllCourses);
 
 /**
  * @swagger
@@ -203,7 +203,7 @@ router.get('/', authenticateToken, requireModuleAccess('courses'), courseControl
  *                   type: string
  *                   example: "Internal server error"
  */
-router.get('/:id', authenticateToken, requireModuleAccess('courses'), authorizeResourceAccess(Course), courseController.getCourseById);
+router.get('/:id', authenticateToken, requireModuleAccessAllowingRoles('courses', 'teacher'), authorizeResourceAccess(Course), courseController.getCourseById);
 
 /**
  * @swagger
