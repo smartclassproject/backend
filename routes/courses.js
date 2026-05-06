@@ -279,7 +279,7 @@ router.get('/:id', authenticateToken, requireModuleAccess('courses'), authorizeR
  *                   type: string
  *                   example: "Access denied. No token provided."
  *       403:
- *         description: Forbidden - Insufficient permissions
+ *         description: Forbidden - Wrong role, missing courses module, or major not in your school
  *         content:
  *           application/json:
  *             schema:
@@ -290,7 +290,7 @@ router.get('/:id', authenticateToken, requireModuleAccess('courses'), authorizeR
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Access denied. School admin role required."
+ *                   example: "Access denied - insufficient permissions"
  *       409:
  *         description: Conflict - Course code already exists
  *         content:
@@ -320,7 +320,7 @@ router.get('/:id', authenticateToken, requireModuleAccess('courses'), authorizeR
  */
 router.post('/', 
   authenticateToken, 
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
   requireModuleAccess('courses'),
   [
     body('name').notEmpty().withMessage('Course name is required')
@@ -429,7 +429,7 @@ router.post('/',
  *                   type: string
  *                   example: "Access denied. No token provided."
  *       403:
- *         description: Forbidden - Insufficient permissions or no access
+ *         description: Forbidden - Wrong role, missing courses module, or major not in your school
  *         content:
  *           application/json:
  *             schema:
@@ -440,7 +440,7 @@ router.post('/',
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Access denied. School admin role required."
+ *                   example: "Access denied - insufficient permissions"
  *       404:
  *         description: Course not found
  *         content:
@@ -483,7 +483,7 @@ router.post('/',
  */
 router.put('/:id', 
   authenticateToken, 
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
   requireModuleAccess('courses'),
   [
     body('name').optional().isLength({ max: 100 }).withMessage('Course name cannot exceed 100 characters'),
@@ -551,7 +551,7 @@ router.put('/:id',
  *                   type: string
  *                   example: "Access denied. No token provided."
  *       403:
- *         description: Forbidden - Insufficient permissions or no access
+ *         description: Forbidden - Wrong role or missing courses module
  *         content:
  *           application/json:
  *             schema:
@@ -562,7 +562,7 @@ router.put('/:id',
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Access denied. School admin role required."
+ *                   example: "Access denied - insufficient permissions"
  *       404:
  *         description: Course not found
  *         content:
@@ -605,7 +605,7 @@ router.put('/:id',
  */
 router.delete('/:id', 
   authenticateToken, 
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
   requireModuleAccess('courses'),
   courseController.deleteCourse
 );
