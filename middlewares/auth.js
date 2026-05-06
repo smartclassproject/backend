@@ -341,8 +341,11 @@ const authorizeResourceAccess = (resourceModel, resourceIdField = '_id') => {
 
       // School admin and school staff can only access resources from their school
       if (req.user.role === 'school_admin' || req.user.role === 'school_staff') {
-        const resourceId = req.params[resourceIdField] || req.body[resourceIdField];
-        
+        const resourceId =
+          req.params[resourceIdField] ||
+          (resourceIdField === '_id' ? req.params.id : undefined) ||
+          req.body[resourceIdField];
+
         if (!resourceId) {
           return res.status(400).json({
             success: false,

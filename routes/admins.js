@@ -495,4 +495,4 @@ router.post(
   privacyPoliciesController.upsertPrivacyPolicy
 );
 
-module.exports = router; 
+module.exports = router;
