@@ -201,6 +201,35 @@ const requireAnyModuleAccess = (...moduleKeys) => {
 };
 
 /**
+ * Require module access only for school_staff; other roles pass through.
+ * Use on routes that also allow teacher/super_admin where requireModuleAccess would block teachers.
+ */
+const requireModuleAccessForSchoolStaff = (moduleKey) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+    }
+
+    if (req.user.role !== 'school_staff') {
+      return next();
+    }
+
+    const userModules = Array.isArray(req.user.modules) ? req.user.modules : [];
+    if (!userModules.includes(moduleKey)) {
+      return res.status(403).json({
+        success: false,
+        message: `Access denied - missing module permission: ${moduleKey}`,
+      });
+    }
+
+    return next();
+  };
+};
+
+/**
  * School-specific authorization middleware
  * Ensures school_admin can only access their school's data
  */
@@ -312,5 +341,6 @@ module.exports = {
   authorizeResourceAccess,
   requireModuleAccess,
   requireAnyModuleAccess,
+  requireModuleAccessForSchoolStaff,
   authorize: authorizeRoles // Alias for backward compatibility
 }; 

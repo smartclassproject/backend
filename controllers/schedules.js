@@ -40,6 +40,11 @@ exports.getAllSchedules = async (req, res) => {
     if (userRole === 'school_admin') {
       query.schoolId = req.user.schoolId;
     }
+
+    // School staff (DoS, etc.) scoped to their school
+    if (userRole === 'school_staff') {
+      query.schoolId = req.user.schoolId;
+    }
     
     // Teacher can only see their own schedules
     if (userRole === 'teacher') {
@@ -142,6 +147,10 @@ exports.getCalendarSchedules = async (req, res) => {
     if (userRole === 'school_admin') {
       query.schoolId = req.user.schoolId;
     }
+
+    if (userRole === 'school_staff') {
+      query.schoolId = req.user.schoolId;
+    }
     
     // Teacher can only see their own schedules
     if (userRole === 'teacher') {
@@ -226,7 +235,7 @@ exports.createSchedule = async (req, res) => {
       return sendError(res, 404, 'Course not found');
     }
 
-    if (req.user.role === 'school_admin' && course.schoolId.toString() !== req.user.schoolId.toString()) {
+    if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && course.schoolId.toString() !== req.user.schoolId.toString()) {
       return sendError(res, 403, 'Course does not belong to your school');
     }
 
@@ -236,7 +245,7 @@ exports.createSchedule = async (req, res) => {
       return sendError(res, 404, 'Teacher not found');
     }
 
-    if (req.user.role === 'school_admin' && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
+    if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
       return sendError(res, 403, 'Teacher does not belong to your school');
     }
 
@@ -329,8 +338,8 @@ exports.updateSchedule = async (req, res) => {
       return sendError(res, 403, 'Access denied - you can only modify your own schedules');
     }
     
-    // School admins can only modify schedules from their school
-    if (userRole === 'school_admin' && (!scheduleSchoolId || scheduleSchoolId !== String(req.user.schoolId))) {
+    // School admins and staff can only modify schedules from their school
+    if ((userRole === 'school_admin' || userRole === 'school_staff') && (!scheduleSchoolId || scheduleSchoolId !== String(req.user.schoolId))) {
       return sendError(res, 403, 'Access denied - schedule does not belong to your school');
     }
 
@@ -346,7 +355,7 @@ exports.updateSchedule = async (req, res) => {
         return sendError(res, 404, 'Teacher not found');
       }
 
-      if (req.user.role === 'school_admin' && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
+      if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
         return sendError(res, 403, 'Teacher does not belong to your school');
       }
     }
@@ -448,10 +457,27 @@ exports.checkConflicts = async (req, res) => {
   try {
     const { courseId, teacherId, classroom, startDate, endDate, weeklySessions, excludeScheduleId } = req.body;
 
+    const course = await Course.findById(courseId);
+    if (!course) {
+      return sendError(res, 404, 'Course not found');
+    }
+    if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && course.schoolId.toString() !== req.user.schoolId.toString()) {
+      return sendError(res, 403, 'Course does not belong to your school');
+    }
+
+    const teacher = await Teacher.findById(teacherId);
+    if (!teacher) {
+      return sendError(res, 404, 'Teacher not found');
+    }
+    if ((req.user.role === 'school_admin' || req.user.role === 'school_staff') && teacher.schoolId.toString() !== req.user.schoolId.toString()) {
+      return sendError(res, 403, 'Teacher does not belong to your school');
+    }
+
     const testSchedule = {
       courseId,
       teacherId,
       classroom,
+      schoolId: course.schoolId,
       startDate: new Date(startDate),
       endDate: new Date(endDate),
       weeklySessions

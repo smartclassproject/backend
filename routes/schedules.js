@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const scheduleController = require('../controllers/schedules');
-const { authenticateToken, authorizeRoles, authorizeResourceAccess } = require('../middlewares/auth');
+const { authenticateToken, authorizeRoles, authorizeResourceAccess, requireModuleAccess, requireModuleAccessForSchoolStaff } = require('../middlewares/auth');
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const CourseSchedule = require('../models/CourseSchedule');
@@ -414,7 +414,7 @@ router.get('/:id', authenticateToken, authorizeResourceAccess(CourseSchedule), s
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Access denied. School admin role required."
+ *                   example: "Access denied - insufficient permissions"
  *       409:
  *         description: Conflict - Schedule conflicts detected
  *         content:
@@ -455,7 +455,8 @@ router.get('/:id', authenticateToken, authorizeResourceAccess(CourseSchedule), s
  */
 router.post('/', 
   authenticateToken, 
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
+  requireModuleAccess('courses'),
   [
     body('courseId').notEmpty().withMessage('Course ID is required')
       .isMongoId().withMessage('Invalid course ID'),
@@ -624,7 +625,7 @@ router.post('/',
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Access denied. School admin role required."
+ *                   example: "Access denied - insufficient permissions"
  *       404:
  *         description: Schedule not found
  *         content:
@@ -667,7 +668,8 @@ router.post('/',
  */
 router.put('/:id', 
   authenticateToken, 
-  authorizeRoles('school_admin', 'teacher', 'super_admin'),
+  authorizeRoles('school_admin', 'school_staff', 'teacher', 'super_admin'),
+  requireModuleAccessForSchoolStaff('courses'),
   [
     body('courseId').optional().isMongoId().withMessage('Invalid course ID'),
     body('teacherId').optional().isMongoId().withMessage('Invalid teacher ID'),
@@ -759,7 +761,7 @@ router.put('/:id',
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Access denied. School admin role required."
+ *                   example: "Access denied - insufficient permissions"
  *       404:
  *         description: Schedule not found
  *         content:
@@ -802,7 +804,8 @@ router.put('/:id',
  */
 router.delete('/:id', 
   authenticateToken, 
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
+  requireModuleAccessForSchoolStaff('courses'),
   authorizeResourceAccess(CourseSchedule),
   scheduleController.deleteSchedule
 );
@@ -941,7 +944,7 @@ router.delete('/:id',
  *                   example: false
  *                 message:
  *                   type: string
- *                   example: "Access denied. School admin role required."
+ *                   example: "Access denied - insufficient permissions"
  *       500:
  *         description: Internal server error
  *         content:
@@ -958,7 +961,8 @@ router.delete('/:id',
  */
 router.post('/check-conflicts', 
   authenticateToken, 
-  authorizeRoles('school_admin'),
+  authorizeRoles('school_admin', 'school_staff'),
+  requireModuleAccess('courses'),
   scheduleController.checkConflicts
 );
 
