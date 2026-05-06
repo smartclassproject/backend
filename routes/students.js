@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const studentController = require('../controllers/students');
-const { authorizeRoles, authorizeResourceAccess, requireModuleAccess } = require('../middlewares/auth');
+const { authorizeRoles, authorizeResourceAccess, requireModuleAccess, requireModuleAccessForSchoolStaff } = require('../middlewares/auth');
 const { validateRequest } = require('../middlewares/validation');
 const { body } = require('express-validator');
 const Student = require('../models/Student');
@@ -196,7 +196,7 @@ router.get('/school/:schoolId/students', authorizeRoles('admin'), studentControl
  * @swagger
  * /api/students/students:
  *   get:
- *     summary: Get all students in current user's school (School Admin Only)
+ *     summary: Get students in current user's school (admin, staff with module, or teacher scoped to assigned majors)
  *     tags: [Students]
  *     security:
  *       - bearerAuth: []
@@ -265,11 +265,11 @@ router.get('/school/:schoolId/students', authorizeRoles('admin'), studentControl
  *       401:
  *         description: Unauthorized
  *       403:
- *         description: Access denied - Only school admins can access this endpoint
+ *         description: Access denied - insufficient permissions or missing students module (staff)
  *       500:
  *         description: Internal server error
  */
-router.get('/students', authorizeRoles('school_admin', 'teacher', 'school_staff'), requireModuleAccess('students'), studentController.getMySchoolStudents);
+router.get('/students', authorizeRoles('school_admin', 'teacher', 'school_staff'), requireModuleAccessForSchoolStaff('students'), studentController.getMySchoolStudents);
 router.get('/dependencies', authorizeRoles('school_admin', 'school_staff'), requireModuleAccess('students'), studentController.getStudentDependencies);
 router.get('/import/template', authorizeRoles('school_admin', 'school_staff'), requireModuleAccess('students'), studentController.downloadStudentImportTemplate);
 router.post('/import/csv', authorizeRoles('school_admin', 'school_staff'), requireModuleAccess('students'), uploadStudentImportCsv.single('file'), studentController.importStudentsFromCsv);
@@ -278,7 +278,7 @@ router.post('/import/csv', authorizeRoles('school_admin', 'school_staff'), requi
  * @swagger
  * /api/students/students/{id}:
  *   get:
- *     summary: Get student by ID (School Admin & Super Admin)
+ *     summary: Get student by ID (admin, super admin, staff with module, or teacher if student is in allowed majors)
  *     tags: [Students]
  *     security:
  *       - bearerAuth: []
@@ -314,7 +314,7 @@ router.post('/import/csv', authorizeRoles('school_admin', 'school_staff'), requi
  *       500:
  *         description: Internal server error
  */
-router.get('/students/:id', authorizeRoles('school_admin', 'super_admin', 'school_staff'), requireModuleAccess('students'), studentController.getStudentById);
+router.get('/students/:id', authorizeRoles('school_admin', 'super_admin', 'school_staff', 'teacher'), requireModuleAccessForSchoolStaff('students'), studentController.getStudentById);
 
 /**
  * @swagger

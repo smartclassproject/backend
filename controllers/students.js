@@ -28,6 +28,15 @@ const getCreatorMeta = (req) => {
   };
 };
 
+async function getTeacherAllowedMajorIds(teacherId) {
+  if (!teacherId) return [];
+  const assignedCourseIds = await CourseSchedule.distinct('courseId', {
+    teacherId,
+  });
+  if (!assignedCourseIds.length) return [];
+  return Course.distinct('majorId', { _id: { $in: assignedCourseIds } });
+}
+
 const IMPORT_TEMPLATE_HEADERS = [
   'name',
   'gender',
@@ -457,7 +466,35 @@ exports.getStudentById = async (req, res) => {
       return sendError(res, 404, 'Student not found');
     }
 
-    return sendResponse(res, 200, { message: 'Student retrieved successfully', data: student });
+    const role = req.user.role || req.user.userType;
+
+    if (role === 'super_admin') {
+      return sendResponse(res, 200, { message: 'Student retrieved successfully', data: student });
+    }
+
+    if (role === 'school_admin' || role === 'school_staff') {
+      if (student.schoolId.toString() !== req.user.schoolId.toString()) {
+        return sendError(res, 403, 'Access denied');
+      }
+      return sendResponse(res, 200, { message: 'Student retrieved successfully', data: student });
+    }
+
+    if (role === 'teacher' || req.user.userType === 'teacher') {
+      const tid = req.user.teacherId || req.user._id;
+      if (!req.user.schoolId || student.schoolId.toString() !== req.user.schoolId.toString()) {
+        return sendError(res, 403, 'Access denied');
+      }
+      const majorIds = await getTeacherAllowedMajorIds(tid);
+      const mid = student.majorId?._id
+        ? student.majorId._id.toString()
+        : (student.majorId ? student.majorId.toString() : '');
+      if (!mid || !majorIds.some((id) => id.toString() === mid)) {
+        return sendError(res, 403, 'Access denied');
+      }
+      return sendResponse(res, 200, { message: 'Student retrieved successfully', data: student });
+    }
+
+    return sendError(res, 403, 'Access denied');
   } catch (error) {
     return sendError(res, 500, 'Internal server error');
   }
@@ -1102,12 +1139,8 @@ exports.getMySchoolStudents = async (req, res) => {
 
     // Teacher: only students in majors that match the teacher's assigned courses
     if (req.user.role === 'teacher' && req.user.teacherId) {
-      const assignedCourseIds = await CourseSchedule.distinct('courseId', {
-        teacherId: req.user.teacherId
-      });
-      const majorIds = await Course.distinct('majorId', { _id: { $in: assignedCourseIds } });
+      const majorIds = await getTeacherAllowedMajorIds(req.user.teacherId);
       if (majorIds.length === 0) {
-        // Teacher has no assigned courses → no majors → return no students
         return sendResponse(res, 200, {
           message: 'School students retrieved successfully',
           data: [],

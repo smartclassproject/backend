@@ -52,8 +52,12 @@ const mongoose = require('mongoose');
  *                 description: URL to the material
  *               type:
  *                 type: string
- *                 enum: [pdf, video, link, document]
+ *                 enum: [pdf, ppt, pptx, video, image, document, other, link]
  *                 description: Type of material
+ *               fileName:
+ *                 type: string
+ *               fileSize:
+ *                 type: integer
  *         isPublished:
  *           type: boolean
  *           description: Whether the lesson is published to students
@@ -91,8 +95,17 @@ const materialSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['pdf', 'video', 'link', 'document'],
+    enum: ['pdf', 'ppt', 'pptx', 'video', 'image', 'document', 'other', 'link'],
     default: 'link'
+  },
+  fileName: {
+    type: String,
+    trim: true,
+    maxlength: [255, 'File name cannot exceed 255 characters']
+  },
+  fileSize: {
+    type: Number,
+    min: [0, 'File size cannot be negative']
   }
 }, { _id: false });
 
